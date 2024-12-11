@@ -11,7 +11,7 @@ GpioManager::GpioManager(gpio_num_t pin, UdpServer* udpServer)
 void GpioManager::Task() {
     while (true) {
         if (gpio_get_level(pin) == 0) {
-            udpServer->SendMessage("REPOND STP OH MAXENCE STP ALLEZ REPOND MAIS MERDE ALLELLEZZZZZZ TU GAVES ALLUME LA LAMPE BORDEL", "192.168.4.2");
+            udpServer->SendMessage("l1", "192.168.4.2");
             vTaskDelay(pdMS_TO_TICKS(500)); // Anti-rebond
         }
         vTaskDelay(pdMS_TO_TICKS(100));
