@@ -2,7 +2,7 @@
 
 const char* UdpServer::Tag = "UdpServer";
 
-UdpServer::UdpServer(int port) : port(port), sock(-1), droneIp("") {}
+UdpServer::UdpServer(int port,WifiServer wifiServer) : wifiServer(wifiServer), port(port), sock(-1) {}
 
 UdpServer::~UdpServer() {
     if (sock >= 0) {
@@ -46,19 +46,13 @@ void UdpServer::ReceiveTask() {
         } else {
             rxBuffer[len] = '\0';
             ESP_LOGI(Tag, "Message reçu : %s", rxBuffer);
-
-            if (strcmp(rxBuffer, "hello world !") == 0) {
-                char addrStr[INET_ADDRSTRLEN];
-                inet_ntop(AF_INET, &sourceAddr.sin_addr, addrStr, INET_ADDRSTRLEN);
-                droneIp = std::string(addrStr);
-                ESP_LOGI(Tag, "IP Drone enregistrée : %s", droneIp.c_str());
-            }
+            
         }
     }
 }
 
-void UdpServer::SendMessage(const std::string& message, const std::string& ip) {
-    if (sock < 0 || ip.empty()) {
+void UdpServer::SendMessage(const std::string& message) {
+    if (sock < 0 || wifiServer.getDroneIp().empty()) {
         ESP_LOGW(Tag, "Socket ou IP non valide !");
         return;
     }
@@ -66,7 +60,7 @@ void UdpServer::SendMessage(const std::string& message, const std::string& ip) {
     struct sockaddr_in destAddr = {};
     destAddr.sin_family = AF_INET;
     destAddr.sin_port = htons(port);
-    inet_pton(AF_INET, ip.c_str(), &destAddr.sin_addr.s_addr);
+    inet_pton(AF_INET, wifiServer.getDroneIp().c_str(), &destAddr.sin_addr.s_addr);
 
     sendto(sock, message.c_str(), message.length(), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
     ESP_LOGI(Tag, "Message envoyé : %s", message.c_str());

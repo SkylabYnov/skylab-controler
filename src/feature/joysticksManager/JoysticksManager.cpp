@@ -7,14 +7,16 @@ JoysticksManager::JoysticksManager(UdpServer* udpServer)
 
 void JoysticksManager::Task() {
     while (true) {
-       JoystickModel* joystick = new JoystickModel( adc1_get_raw(pinJoystickX),
-                                                    adc1_get_raw(pinJoystickY));
-        if(oldJoystickGauche==nullptr){
-            oldJoystickGauche= new JoystickModel(joystick);
-        }
+        ControllerRequestDTO controllerRequestDTO;
 
-        if(oldJoystickGauche!=joystick){
-            oldJoystickGauche= new JoystickModel(joystick);
+        controllerRequestDTO.joystickLeft = JoystickModel( adc1_get_raw(pinJoystickX),
+                                                    adc1_get_raw(pinJoystickY));
+
+        if(lastController!=controllerRequestDTO){
+            lastController= controllerRequestDTO;
+            ESP_LOGI(Tag, "initil : %s", controllerRequestDTO.toJson().c_str());
+            udpServer->SendMessage(controllerRequestDTO.toJson());
+            
         }
        vTaskDelay(pdMS_TO_TICKS(100));
     }

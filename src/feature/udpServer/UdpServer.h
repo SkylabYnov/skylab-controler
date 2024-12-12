@@ -4,19 +4,20 @@
 #include <string>
 #include <lwip/sockets.h>
 #include <esp_log.h>
+#include <feature/wifiServer/WifiServer.h>
 
 class UdpServer {
 public:
-    UdpServer(int port);
+    UdpServer(int port,WifiServer wifiServer);
     ~UdpServer();
     void Init();
     void ReceiveTask();
-    void SendMessage(const std::string& message, const std::string& ip);
+    void SendMessage(const std::string& message);
 
 private:
+    WifiServer wifiServer;
     int port;
     int sock;
-    std::string droneIp;
     static const char *Tag;
 };
 
