@@ -1,6 +1,6 @@
 #include "./feature/wifiServer/WifiServer.h"
 #include "./feature/udpServer/UdpServer.h"
-#include "./feature/gpioManager/GpioManager.h"
+#include "./feature/joysticksManager/JoysticksManager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -9,7 +9,7 @@
 #include "esp_event.h"
 
 UdpServer* udpServer;
-GpioManager* gpioManager;
+JoysticksManager* joysticksManager;
 
 extern "C" void app_main() {
     
@@ -18,8 +18,8 @@ extern "C" void app_main() {
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     udpServer = new UdpServer(1234);
-    gpioManager = new GpioManager(GPIO_NUM_26,udpServer);
-
+    joysticksManager = new JoysticksManager(udpServer);
+    joysticksManager->initJoystick();
     WifiServer wifiServer("ESP32_Hotspot", "12345678");
     wifiServer.Init();
 
@@ -28,8 +28,8 @@ extern "C" void app_main() {
 
 
     xTaskCreate([](void*) { udpServer->ReceiveTask(); },
-                "gpioTask", 2048, &gpioManager, 5, nullptr);
+                "gpioTask", 2048, &joysticksManager, 5, nullptr);
 
-    xTaskCreate([](void*) { gpioManager->Task(); },
-                "gpioTask", 2048, &gpioManager, 5, nullptr);
+    xTaskCreate([](void*) { joysticksManager->Task(); },
+                "gpioTask", 2048, &joysticksManager, 5, nullptr);
 }
