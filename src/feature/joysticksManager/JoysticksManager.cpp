@@ -9,13 +9,14 @@ void JoysticksManager::Task() {
     while (true) {
         ControllerRequestDTO controllerRequestDTO;
 
-        controllerRequestDTO.joystickLeft = JoystickModel( adc1_get_raw(pinJoystickX),
+        controllerRequestDTO.joystickLeft = new JoystickModel( adc1_get_raw(pinJoystickX),
                                                     adc1_get_raw(pinJoystickY));
 
         if(lastController!=controllerRequestDTO){
             lastController= controllerRequestDTO;
-            ESP_LOGI(Tag, "initil : %s", controllerRequestDTO.toJson().c_str());
-            udpServer->SendMessage(controllerRequestDTO.toJson());
+            char* jsonString = cJSON_PrintUnformatted(controllerRequestDTO.toJson());
+            ESP_LOGI(Tag, "initil : %s", jsonString);
+            udpServer->SendMessage(jsonString);
             
         }
        vTaskDelay(pdMS_TO_TICKS(100));

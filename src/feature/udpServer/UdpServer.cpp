@@ -51,7 +51,7 @@ void UdpServer::ReceiveTask() {
     }
 }
 
-void UdpServer::SendMessage(const std::string& message) {
+void UdpServer::SendMessage(const char* message) {
     if (sock < 0 || wifiServer.getDroneIp().empty()) {
         ESP_LOGW(Tag, "Socket ou IP non valide !");
         return;
@@ -62,6 +62,6 @@ void UdpServer::SendMessage(const std::string& message) {
     destAddr.sin_port = htons(port);
     inet_pton(AF_INET, wifiServer.getDroneIp().c_str(), &destAddr.sin_addr.s_addr);
 
-    sendto(sock, message.c_str(), message.length(), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
-    ESP_LOGI(Tag, "Message envoyé : %s", message.c_str());
+    sendto(sock, message, strlen(message), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
+    ESP_LOGI(Tag, "Message envoyé : %s", message);
 }

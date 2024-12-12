@@ -12,7 +12,7 @@ public:
     ~UdpServer();
     void Init();
     void ReceiveTask();
-    void SendMessage(const std::string& message);
+    void SendMessage(const char* message);
 
 private:
     WifiServer wifiServer;

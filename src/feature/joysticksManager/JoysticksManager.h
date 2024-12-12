@@ -1,10 +1,11 @@
 #ifndef Joysticks_Manager_H
 #define Joysticks_Manager_H
 
+#include <JoystickModel.h>
+#include <ControllerRequestDTO.h>
+
 #include "driver/adc.h"
 #include "./feature/udpServer/UdpServer.h"
-#include "./core/JoystickModel/JoystickModel.h"
-#include <core/ControllerRequestDTO/ControllerRequestDTO.h>
 
 class JoysticksManager {
 public:
