@@ -1,5 +1,6 @@
 #include "./JoysticksManager.h"
 
+
 const char* JoysticksManager::Tag = "JoysticksManager";
 
 JoysticksManager::JoysticksManager(UdpServer* udpServer)
@@ -7,15 +8,27 @@ JoysticksManager::JoysticksManager(UdpServer* udpServer)
 
 void JoysticksManager::Task() {
     while (true) {
-       JoystickModel* joystick = new JoystickModel( adc1_get_raw(pinJoystickX),
+        ControllerRequestDTO controllerRequestDTO;
+
+        controllerRequestDTO.joystickLeft = new JoystickModel( adc1_get_raw(pinJoystickX),
                                                     adc1_get_raw(pinJoystickY));
-        if(oldJoystickGauche==nullptr){
-            oldJoystickGauche= new JoystickModel(joystick);
+
+                                                    
+        controllerRequestDTO.joystickRight = new JoystickModel( adc1_get_raw(pinJoystick2X),
+        adc1_get_raw(pinJoystick2Y));
+
+
+        if(lastController!=controllerRequestDTO){
+            lastController = controllerRequestDTO;
+            cJSON* jsonObj = controllerRequestDTO.toJson();
+            char* jsonString = cJSON_PrintUnformatted(jsonObj);
+            udpServer->SendMessage(jsonString);        
+            delete jsonString;
+            cJSON_Delete(jsonObj);
+            
         }
 
-        if(oldJoystickGauche!=joystick){
-            oldJoystickGauche= new JoystickModel(joystick);
-        }
+
        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
