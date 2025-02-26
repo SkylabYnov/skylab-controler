@@ -17,6 +17,8 @@ public:
 private:
     adc1_channel_t pinJoystickX = ADC1_CHANNEL_6;
     adc1_channel_t pinJoystickY = ADC1_CHANNEL_7;
+    adc1_channel_t pinJoystick2X = ADC1_CHANNEL_4;
+    adc1_channel_t pinJoystick2Y = ADC1_CHANNEL_5;
     UdpServer* udpServer;
     static const char *Tag;
     ControllerRequestDTO lastController; 
