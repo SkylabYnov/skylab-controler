@@ -17,6 +17,8 @@ void JoysticksManager::Task() {
             char* jsonString = cJSON_PrintUnformatted(controllerRequestDTO.toJson());
             ESP_LOGI(Tag, "initil : %s", jsonString);
             udpServer->SendMessage(jsonString);
+
+            delete jsonString;
             
         }
        vTaskDelay(pdMS_TO_TICKS(100));
