@@ -1,6 +1,7 @@
 #include "./feature/wifiServer/WifiServer.h"
 #include "./feature/udpServer/UdpServer.h"
 #include "./feature/joysticksManager/JoysticksManager.h"
+#include "./feature/buttonsManager/ButtonsManager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -8,8 +9,10 @@
 #include "esp_netif.h"
 #include "esp_event.h"
 
+
 UdpServer* udpServer;
 JoysticksManager* joysticksManager;
+ButtonsManager* buttonsManager;
 
 extern "C" void app_main() {
 
@@ -24,6 +27,8 @@ extern "C" void app_main() {
     udpServer = new UdpServer(1234,wifiServer);
     joysticksManager = new JoysticksManager(udpServer);
     joysticksManager->initJoystick();
+    buttonsManager = new ButtonsManager(udpServer);
+    buttonsManager->initButton();
     
 
     udpServer->Init();
@@ -35,4 +40,7 @@ extern "C" void app_main() {
 
     xTaskCreate([](void*) { joysticksManager->Task(); },
                 "joystickManagerTask", 4096, &joysticksManager, 5, nullptr);
+
+    xTaskCreate([](void*) { buttonsManager->Task(); },
+                "buttonManagerTask", 2048, &buttonsManager, 5, nullptr);
 }

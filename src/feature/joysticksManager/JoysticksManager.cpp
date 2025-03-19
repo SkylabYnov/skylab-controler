@@ -9,8 +9,6 @@ JoysticksManager::JoysticksManager(UdpServer* udpServer)
 
 void JoysticksManager::Task() {
     while (true) {
-        ControllerRequestDTO controllerRequestDTO;
-
         JoystickModel joystickLeft = JoystickModel(adc1_get_raw(pinJoystickLeftX),adc1_get_raw(pinJoystickLeftY));
         JoystickModel joystickRight = JoystickModel(adc1_get_raw(pinJoystickRightX),adc1_get_raw(pinJoystickRightY));
 
