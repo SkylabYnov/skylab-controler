@@ -52,6 +52,7 @@ void UdpServer::ReceiveTask() {
 }
 
 void UdpServer::SendMessage(const char* message) {
+    ESP_LOGI(Tag, "Message envoyé : %s", message);
     if (sock < 0 || wifiServer.getDroneIp().empty()) {
         ESP_LOGW(Tag, "Socket ou IP non valide !");
         return;
