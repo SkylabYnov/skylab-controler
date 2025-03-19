@@ -24,12 +24,14 @@ private:
     adc1_channel_t pinJoystickRightY = ADC1_CHANNEL_5;
     UdpServer* udpServer;
     static const char *Tag;
-    ControllerRequestDTO lastController; 
+    JoystickModel lastJoystickModelLeft;
+    JoystickModel lastJoystickModelRight; 
 
-    ControllerRequestDTO lastControllerRequestDTO[NBR_INCR_JOKTICK] = {};
+    JoystickModel lastJoystickModelLeftTable[NBR_INCR_JOKTICK] = {};
+    JoystickModel lastJoystickModelRightTable[NBR_INCR_JOKTICK] = {};
 
-    void addToLastRequests(ControllerRequestDTO* list, int size, const ControllerRequestDTO& newRequest);
-    ControllerRequestDTO calculateAverageDTO(const ControllerRequestDTO* list, int size);
+    void addToLastRequests(JoystickModel* list, int size, const JoystickModel& newRequest);
+    JoystickModel calculateAverageDTO(const JoystickModel* list, int size);
 };
 
 #endif // Joysticks_Manager_H
