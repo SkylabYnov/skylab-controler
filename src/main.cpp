@@ -6,19 +6,12 @@
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "esp_event.h"
-#include <esp_mac.h>
 
 
 JoysticksManager* joysticksManager;
 ButtonsManager* buttonsManager;
 
 extern "C" void app_main() {
-    uint8_t mac[6];
-    esp_efuse_mac_get_default(mac);
-    
-    ESP_LOGI("MAC", "Adresse MAC : %02X:%02X:%02X:%02X:%02X:%02X", 
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
