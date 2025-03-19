@@ -2,17 +2,16 @@
 #define Joysticks_Manager_H
 
 #include <JoystickModel.h>
+#include <feature/espNowHandler/EspNowHandler.h>
 #include <ControllerRequestDTO.h>
-
 #include "driver/adc.h"
-#include "./feature/udpServer/UdpServer.h"
 
 #define NBR_INCR_JOKTICK 10
 #define TIME_MS_BETWEEN 10
 
 class JoysticksManager {
 public:
-    JoysticksManager(UdpServer* udpServer);
+    JoysticksManager(EspNowHandler* espNowHandler);
     void Task();
     void initJoystick();
     
@@ -22,7 +21,7 @@ private:
     adc1_channel_t pinJoystickLeftY = ADC1_CHANNEL_7;
     adc1_channel_t pinJoystickRightX = ADC1_CHANNEL_4;
     adc1_channel_t pinJoystickRightY = ADC1_CHANNEL_5;
-    UdpServer* udpServer;
+    EspNowHandler* espNowHandler;
     static const char *Tag;
     JoystickModel lastJoystickModelLeft;
     JoystickModel lastJoystickModelRight; 

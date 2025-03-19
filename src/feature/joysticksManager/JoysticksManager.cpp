@@ -1,12 +1,11 @@
-#include "./JoysticksManager.h"
 #include "JoysticksManager.h"
 
 
 
 const char* JoysticksManager::Tag = "JoysticksManager";
 
-JoysticksManager::JoysticksManager(UdpServer* udpServer)
-    : udpServer(udpServer) {adc1_config_width(ADC_WIDTH_BIT_12);}
+JoysticksManager::JoysticksManager(EspNowHandler* espNowHandler)
+    : espNowHandler(espNowHandler) {adc1_config_width(ADC_WIDTH_BIT_12);}
 
 void JoysticksManager::Task() {
     while (true) {
@@ -26,11 +25,7 @@ void JoysticksManager::Task() {
             controllerRequestDTO.initCounter();
             lastJoystickModelLeft = joystickModelLeftAverage;
             lastJoystickModelRight = joystickModelRightAverage;
-            cJSON* jsonObj = controllerRequestDTO.toJson();
-            char* jsonString = cJSON_PrintUnformatted(jsonObj);
-            udpServer->SendMessage(jsonString);        
-            delete jsonString;
-            cJSON_Delete(jsonObj);
+            espNowHandler->send_data(controllerRequestDTO.toStruct());
         }
 
         vTaskDelay(pdMS_TO_TICKS(TIME_MS_BETWEEN));

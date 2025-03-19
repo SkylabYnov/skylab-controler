@@ -1,14 +1,14 @@
 #ifndef Buttons_Manager_H
 #define Buttons_Manager_H
 
-#include "./feature/udpServer/UdpServer.h"
+#include <feature/espNowHandler/EspNowHandler.h>
 #include "driver/gpio.h"
 #include <ControllerRequestDTO.h>
 
 
 class ButtonsManager{
 public:
-    ButtonsManager(UdpServer* udpServer);
+    ButtonsManager(EspNowHandler* espNowHandler);
     void initButton();
     void Task();
 private:
@@ -18,7 +18,7 @@ private:
     volatile bool buttonPressedMotorState = false; 
     gpio_num_t pinButtonEmergencyStop = GPIO_NUM_14;
     gpio_num_t pinButtonMotorState = GPIO_NUM_12;
-    UdpServer* udpServer;
+    EspNowHandler* espNowHandler;
 };
 
 
