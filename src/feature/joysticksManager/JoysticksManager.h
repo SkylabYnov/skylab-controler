@@ -6,8 +6,8 @@
 #include <ControllerRequestDTO.h>
 #include "driver/adc.h"
 
-#define NBR_INCR_JOKTICK 10
-#define TIME_MS_BETWEEN 10
+#define NBR_INCR_JOKTICK 4
+#define TIME_MS_BETWEEN 50
 
 class JoysticksManager {
 public:

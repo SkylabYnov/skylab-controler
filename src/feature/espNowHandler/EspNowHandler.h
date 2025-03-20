@@ -8,7 +8,7 @@
 #include <ControllerRequestDTO.h>
 #include <nvs_flash.h>
 
-#define ESP_MAC {0x24, 0x6F, 0x28, 0xA1, 0xB2, 0xC3}  // MAC du Drone
+#define ESP_MAC {0xA0, 0xDD, 0x6C, 0x10, 0x3E, 0x34}  // MAC du Drone
 
 class EspNowHandler {
 public:
