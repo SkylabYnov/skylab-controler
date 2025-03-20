@@ -32,5 +32,5 @@ extern "C" void app_main() {
                 "joystickManagerTask", 4096, &joysticksManager, 5, nullptr);
 
     xTaskCreate([](void*) { buttonsManager->Task(); },
-                "buttonManagerTask", 2048, &buttonsManager, 5, nullptr);
+                "buttonManagerTask", 4096, &buttonsManager, 5, nullptr);
 }

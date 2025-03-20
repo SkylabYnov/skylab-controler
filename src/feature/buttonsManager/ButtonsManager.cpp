@@ -29,23 +29,20 @@ void ButtonsManager::Task()
 {
     while (true) {
         if (buttonPressedMotorState) {
-            ControllerRequestDTO* controllerRequestDTO = new ControllerRequestDTO();
+            ControllerRequestDTO controllerRequestDTO;
             controllerRequestDTO->buttonMotorState=new bool(true);
             controllerRequestDTO->initCounter();
             buttonPressedMotorState = false; 
-            espNowHandler->send_data(*controllerRequestDTO);
-            delete controllerRequestDTO;
-
+            espNowHandler->send_data(controllerRequestDTO);
         }
         if (buttonPressedEmergencyStop) {
-            ControllerRequestDTO* controllerRequestDTO = new ControllerRequestDTO();
+            ControllerRequestDTO controllerRequestDTO;
             controllerRequestDTO->buttonEmergencyStop=new bool(true);
             controllerRequestDTO->initCounter();
             buttonPressedEmergencyStop = false; 
-            espNowHandler->send_data(*controllerRequestDTO);
-            delete controllerRequestDTO;
+            espNowHandler->send_data(controllerRequestDTO);
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
