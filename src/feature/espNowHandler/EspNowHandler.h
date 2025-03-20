@@ -16,7 +16,7 @@ public:
     ~EspNowHandler();
 
     bool init();
-    void send_data(const ControllerRequestData& requestData);
+    void send_data(const ControllerRequestDTO& requestDto);
 
 private:
 
