@@ -43,7 +43,6 @@ void ButtonsManager::Task()
             espNowHandler->send_data(controllerRequestDTO);
         }
         vTaskDelay(pdMS_TO_TICKS(50));
-        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
