@@ -42,10 +42,12 @@ bool EspNowHandler::init() {
     return true;
 }
 
-void EspNowHandler::send_data(const ControllerRequestData& requestData) {
+void EspNowHandler::send_data(const ControllerRequestDTO& controllerRequestDTO) {
+    ControllerRequestData requestData = controllerRequestDTO.toStruct();
     if (esp_now_send(peer_mac, (uint8_t*)&requestData, sizeof(requestData)) != ESP_OK) {
-        ESP_LOGE(TAG, "Erreur d'envoi ESP-NOW");
+        ESP_LOGI(TAG, "Erreur d'envoi : %s", controllerRequestDTO.toString().c_str());
     } else {
-        ESP_LOGI(TAG, "Données envoyées");
+        
+        ESP_LOGI(TAG, "Données envoyées : %s", controllerRequestDTO.toString().c_str());
     }
 }

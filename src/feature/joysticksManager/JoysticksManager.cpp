@@ -25,7 +25,7 @@ void JoysticksManager::Task() {
             controllerRequestDTO.initCounter();
             lastJoystickModelLeft = joystickModelLeftAverage;
             lastJoystickModelRight = joystickModelRightAverage;
-            espNowHandler->send_data(controllerRequestDTO.toStruct());
+            espNowHandler->send_data(controllerRequestDTO);
         }
 
         vTaskDelay(pdMS_TO_TICKS(TIME_MS_BETWEEN));
