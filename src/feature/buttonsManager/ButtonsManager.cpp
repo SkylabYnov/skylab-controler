@@ -5,8 +5,7 @@
 
 #define TAG "ButtonsManager"
 
-ButtonsManager::ButtonsManager(UdpServer* udpServer) {
-    this->udpServer = udpServer;
+ButtonsManager::ButtonsManager(EspNowHandler* espNowHandler): espNowHandler(espNowHandler)  {
 }
 
 
@@ -34,22 +33,14 @@ void ButtonsManager::Task()
             controllerRequestDTO.buttonMotorState=new bool(true);
             controllerRequestDTO.initCounter();
             buttonPressedMotorState = false; 
-            cJSON* jsonObj = controllerRequestDTO.toJson();
-            char* jsonString = cJSON_PrintUnformatted(jsonObj);
-            udpServer->SendMessage(jsonString);        
-            delete jsonString;
-            cJSON_Delete(jsonObj);
+            espNowHandler->send_data(controllerRequestDTO.toStruct());
         }
         if (buttonPressedEmergencyStop) {
             ControllerRequestDTO controllerRequestDTO;
             controllerRequestDTO.buttonEmergencyStop=new bool(true);
             controllerRequestDTO.initCounter();
             buttonPressedEmergencyStop = false; 
-            cJSON* jsonObj = controllerRequestDTO.toJson();
-            char* jsonString = cJSON_PrintUnformatted(jsonObj);
-            udpServer->SendMessage(jsonString);        
-            delete jsonString;
-            cJSON_Delete(jsonObj);
+            espNowHandler->send_data(controllerRequestDTO.toStruct());
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
