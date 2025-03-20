@@ -49,5 +49,6 @@ void EspNowHandler::send_data(const ControllerRequestDTO& controllerRequestDTO) 
     } else {
         
         ESP_LOGI(TAG, "Données envoyées : %s", controllerRequestDTO.toString().c_str());
+
     }
 }

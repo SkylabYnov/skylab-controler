@@ -35,6 +35,7 @@ void ButtonsManager::Task()
             buttonPressedMotorState = false; 
             espNowHandler->send_data(*controllerRequestDTO);
             delete controllerRequestDTO;
+
         }
         if (buttonPressedEmergencyStop) {
             ControllerRequestDTO* controllerRequestDTO = new ControllerRequestDTO();
