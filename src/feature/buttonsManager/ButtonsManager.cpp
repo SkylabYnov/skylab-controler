@@ -34,6 +34,7 @@ void ButtonsManager::Task()
             controllerRequestDTO.initCounter();
             buttonPressedMotorState = false; 
             espNowHandler->send_data(controllerRequestDTO);
+            espNowHandler->send_data(controllerRequestDTO);
         }
         if (buttonPressedEmergencyStop) {
             ControllerRequestDTO controllerRequestDTO;
@@ -41,7 +42,9 @@ void ButtonsManager::Task()
             controllerRequestDTO.initCounter();
             buttonPressedEmergencyStop = false; 
             espNowHandler->send_data(controllerRequestDTO);
+            espNowHandler->send_data(controllerRequestDTO);
         }
+        vTaskDelay(pdMS_TO_TICKS(50));
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
