@@ -30,15 +30,15 @@ void ButtonsManager::Task()
     while (true) {
         if (buttonPressedMotorState) {
             ControllerRequestDTO controllerRequestDTO;
-            controllerRequestDTO->buttonMotorState=new bool(true);
-            controllerRequestDTO->initCounter();
+            controllerRequestDTO.buttonMotorState=new bool(true);
+            controllerRequestDTO.initCounter();
             buttonPressedMotorState = false; 
             espNowHandler->send_data(controllerRequestDTO);
         }
         if (buttonPressedEmergencyStop) {
             ControllerRequestDTO controllerRequestDTO;
-            controllerRequestDTO->buttonEmergencyStop=new bool(true);
-            controllerRequestDTO->initCounter();
+            controllerRequestDTO.buttonEmergencyStop=new bool(true);
+            controllerRequestDTO.initCounter();
             buttonPressedEmergencyStop = false; 
             espNowHandler->send_data(controllerRequestDTO);
         }
