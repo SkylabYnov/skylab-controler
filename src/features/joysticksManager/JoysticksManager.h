@@ -2,8 +2,9 @@
 #define Joysticks_Manager_H
 
 #include <JoystickModel.h>
-#include <feature/espNowHandler/EspNowHandler.h>
+#include <features/espNowHandler/EspNowHandler.h>
 #include <ControllerRequestDTO.h>
+
 #include "driver/adc.h"
 
 #define NBR_INCR_JOKTICK 4

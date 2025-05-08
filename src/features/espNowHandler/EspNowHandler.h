@@ -1,11 +1,12 @@
 #ifndef ESP_NOW_HANDLER_H
 #define ESP_NOW_HANDLER_H
 
+#include <ControllerRequestDTO.h>
+
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <esp_log.h>
 #include <string.h>
-#include <ControllerRequestDTO.h>
 #include <nvs_flash.h>
 
 #define ESP_MAC {0xAC, 0x15, 0x18, 0xE6, 0x35, 0x68}  // MAC du Drone

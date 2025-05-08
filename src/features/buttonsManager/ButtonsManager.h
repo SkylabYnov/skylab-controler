@@ -1,9 +1,10 @@
 #ifndef Buttons_Manager_H
 #define Buttons_Manager_H
 
-#include <feature/espNowHandler/EspNowHandler.h>
-#include "driver/gpio.h"
+#include <features/espNowHandler/EspNowHandler.h>
 #include <ControllerRequestDTO.h>
+
+#include "driver/gpio.h"
 
 
 class ButtonsManager{

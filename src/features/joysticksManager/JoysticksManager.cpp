@@ -1,5 +1,4 @@
-#include "JoysticksManager.h"
-
+#include <features/joysticksManager/JoysticksManager.h>
 
 
 const char* JoysticksManager::Tag = "JoysticksManager";
