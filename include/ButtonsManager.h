@@ -1,7 +1,7 @@
 #ifndef Buttons_Manager_H
 #define Buttons_Manager_H
 
-#include <feature/espNowHandler/EspNowHandler.h>
+#include "EspNowHandler.h"
 #include "driver/gpio.h"
 #include <ControllerRequestDTO.h>
 

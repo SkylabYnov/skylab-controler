@@ -1,5 +1,5 @@
-#include "./feature/joysticksManager/JoysticksManager.h"
-#include "./feature/buttonsManager/ButtonsManager.h"
+#include "JoysticksManager.h"
+#include "ButtonsManager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"

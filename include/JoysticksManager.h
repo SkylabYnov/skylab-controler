@@ -2,7 +2,7 @@
 #define Joysticks_Manager_H
 
 #include <JoystickModel.h>
-#include <feature/espNowHandler/EspNowHandler.h>
+#include "EspNowHandler.h"
 #include <ControllerRequestDTO.h>
 #include "driver/adc.h"
 
