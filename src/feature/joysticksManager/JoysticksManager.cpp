@@ -3,16 +3,20 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 
-JoysticksManager::JoysticksManager(EspNowHandler* espNowHandler)
-    : espNowHandler(espNowHandler) {
+JoysticksManager::JoysticksManager(EspNowHandler *espNowHandler)
+    : espNowHandler(espNowHandler)
+{
     adc1_config_width(ADC_WIDTH_BIT_12);
 }
 
-void JoysticksManager::Task() {
-    while (true) {
+void JoysticksManager::Task()
+{
+    while (true)
+    {
         // Read ADC in a loop
         int raw[4];
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 4; ++i)
+        {
             raw[i] = adc1_get_raw(pins[i]);
         }
 
@@ -28,7 +32,8 @@ void JoysticksManager::Task() {
         JoystickModel avgRight = getAverage(sumRightX, sumRightY);
 
         // Send if changed
-        if (lastLeft != avgLeft || lastRight != avgRight) {
+        if (lastLeft != avgLeft || lastRight != avgRight)
+        {
             ControllerRequestDTO dto;
             dto.ConvertJoyStickToFlightController(avgLeft, avgRight);
             dto.initCounter();
@@ -41,7 +46,8 @@ void JoysticksManager::Task() {
     }
 }
 
-void JoysticksManager::pushSample(JoystickModel* buf, int& sumX, int& sumY, const JoystickModel& sample) {
+void JoysticksManager::pushSample(JoystickModel *buf, int &sumX, int &sumY, const JoystickModel &sample)
+{
     // Remove oldest
     sumX -= buf[idx].x;
     sumY -= buf[idx].y;
@@ -55,14 +61,17 @@ void JoysticksManager::pushSample(JoystickModel* buf, int& sumX, int& sumY, cons
     idx = (idx + 1) % NBR_INCR_JOYSTICK;
 }
 
-JoystickModel JoysticksManager::getAverage(int sumX, int sumY) const {
+JoystickModel JoysticksManager::getAverage(int sumX, int sumY) const
+{
     int avgX = sumX / NBR_INCR_JOYSTICK;
     int avgY = sumY / NBR_INCR_JOYSTICK;
     return {avgX, avgY};
 }
 
-void JoysticksManager::initJoystick() {
-    for (auto ch : pins) {
+void JoysticksManager::initJoystick()
+{
+    for (auto ch : pins)
+    {
         adc1_config_channel_atten(ch, ADC_ATTEN_DB_11);
     }
 }

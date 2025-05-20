@@ -12,12 +12,12 @@
 #define NBR_INCR_JOYSTICK 10
 #define TIME_MS_BETWEEN 10
 
-class JoysticksManager {
+class JoysticksManager
+{
 public:
-    JoysticksManager(EspNowHandler* espNowHandler);
+    JoysticksManager(EspNowHandler *espNowHandler);
     void Task();
     void initJoystick();
-    
 
 private:
     static constexpr adc1_channel_t pins[4] = {
@@ -26,8 +26,8 @@ private:
         ADC1_CHANNEL_4, // Right X
         ADC1_CHANNEL_5  // Right Y
     };
-    EspNowHandler* espNowHandler;
-    static constexpr const char* Tag = "JoysticksManager";
+    EspNowHandler *espNowHandler;
+    static constexpr const char *Tag = "JoysticksManager";
     JoystickModel lastLeft;
     JoystickModel lastRight;
 
@@ -38,7 +38,7 @@ private:
     int sumLeftX = 0, sumLeftY = 0;
     int sumRightX = 0, sumRightY = 0;
 
-    void pushSample(JoystickModel* buf, int& sumX, int& sumY, const JoystickModel& sample);
+    void pushSample(JoystickModel *buf, int &sumX, int &sumY, const JoystickModel &sample);
     JoystickModel getAverage(int sumX, int sumY) const;
 };
 
