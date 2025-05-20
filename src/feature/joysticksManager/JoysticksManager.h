@@ -6,10 +6,10 @@
 #include <ControllerRequestDTO.h>
 #include "driver/adc.h"
 
-#define NBR_INCR_JOKTICK 4
-#define TIME_MS_BETWEEN 50
+// #define NBR_INCR_JOYSTICK 4
+// #define TIME_MS_BETWEEN 50
 
-#define NBR_INCR_JOKTICK 10
+#define NBR_INCR_JOYSTICK 10
 #define TIME_MS_BETWEEN 10
 
 class JoysticksManager {
@@ -20,20 +20,26 @@ public:
     
 
 private:
-    adc1_channel_t pinJoystickLeftX = ADC1_CHANNEL_6;
-    adc1_channel_t pinJoystickLeftY = ADC1_CHANNEL_7;
-    adc1_channel_t pinJoystickRightX = ADC1_CHANNEL_4;
-    adc1_channel_t pinJoystickRightY = ADC1_CHANNEL_5;
+    static constexpr adc1_channel_t pins[4] = {
+        ADC1_CHANNEL_6, // Left X
+        ADC1_CHANNEL_7, // Left Y
+        ADC1_CHANNEL_4, // Right X
+        ADC1_CHANNEL_5  // Right Y
+    };
     EspNowHandler* espNowHandler;
-    static const char *Tag;
-    JoystickModel lastJoystickModelLeft;
-    JoystickModel lastJoystickModelRight; 
+    static constexpr const char* Tag = "JoysticksManager";
+    JoystickModel lastLeft;
+    JoystickModel lastRight;
 
-    JoystickModel lastJoystickModelLeftTable[NBR_INCR_JOKTICK] = {};
-    JoystickModel lastJoystickModelRightTable[NBR_INCR_JOKTICK] = {};
+    // Circular buffers and running sums
+    JoystickModel bufferLeft[NBR_INCR_JOYSTICK]{};
+    JoystickModel bufferRight[NBR_INCR_JOYSTICK]{};
+    int idx = 0;
+    int sumLeftX = 0, sumLeftY = 0;
+    int sumRightX = 0, sumRightY = 0;
 
-    void addToLastRequests(JoystickModel* list, int size, const JoystickModel& newRequest);
-    JoystickModel calculateAverageDTO(const JoystickModel* list, int size);
+    void pushSample(JoystickModel* buf, int& sumX, int& sumY, const JoystickModel& sample);
+    JoystickModel getAverage(int sumX, int sumY) const;
 };
 
 #endif // Joysticks_Manager_H

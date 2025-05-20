@@ -1,73 +1,68 @@
 #include "JoysticksManager.h"
-
-
-
-const char* JoysticksManager::Tag = "JoysticksManager";
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
 
 JoysticksManager::JoysticksManager(EspNowHandler* espNowHandler)
-    : espNowHandler(espNowHandler) {adc1_config_width(ADC_WIDTH_BIT_12);}
+    : espNowHandler(espNowHandler) {
+    adc1_config_width(ADC_WIDTH_BIT_12);
+}
 
 void JoysticksManager::Task() {
     while (true) {
-        JoystickModel joystickLeft = JoystickModel(adc1_get_raw(pinJoystickLeftX),adc1_get_raw(pinJoystickLeftY));
-        JoystickModel joystickRight = JoystickModel(adc1_get_raw(pinJoystickRightX),adc1_get_raw(pinJoystickRightY));
+        // Read ADC in a loop
+        int raw[4];
+        for (int i = 0; i < 4; ++i) {
+            raw[i] = adc1_get_raw(pins[i]);
+        }
 
-        
-        addToLastRequests(lastJoystickModelLeftTable, NBR_INCR_JOKTICK, joystickLeft);
-        addToLastRequests(lastJoystickModelRightTable, NBR_INCR_JOKTICK, joystickRight);
+        JoystickModel left(raw[0], raw[1]);
+        JoystickModel right(raw[2], raw[3]);
 
-        JoystickModel joystickModelLeftAverage = calculateAverageDTO(lastJoystickModelLeftTable,NBR_INCR_JOKTICK);
-        JoystickModel joystickModelRightAverage = calculateAverageDTO(lastJoystickModelRightTable,NBR_INCR_JOKTICK);
-        
-        if(lastJoystickModelLeft!=joystickModelLeftAverage || lastJoystickModelRight!=joystickModelRightAverage){
-            ControllerRequestDTO controllerRequestDTO;
-            controllerRequestDTO.ConvertJoyStickToFlightController(joystickModelLeftAverage,joystickModelRightAverage);
-            controllerRequestDTO.initCounter();
-            lastJoystickModelLeft = joystickModelLeftAverage;
-            lastJoystickModelRight = joystickModelRightAverage;
-            espNowHandler->send_data(controllerRequestDTO);
+        // Update circular buffers and sums
+        pushSample(bufferLeft, sumLeftX, sumLeftY, left);
+        pushSample(bufferRight, sumRightX, sumRightY, right);
+
+        // Compute averages
+        JoystickModel avgLeft = getAverage(sumLeftX, sumLeftY);
+        JoystickModel avgRight = getAverage(sumRightX, sumRightY);
+
+        // Send if changed
+        if (lastLeft != avgLeft || lastRight != avgRight) {
+            ControllerRequestDTO dto;
+            dto.ConvertJoyStickToFlightController(avgLeft, avgRight);
+            dto.initCounter();
+            espNowHandler->send_data(dto);
+            lastLeft = avgLeft;
+            lastRight = avgRight;
         }
 
         vTaskDelay(pdMS_TO_TICKS(TIME_MS_BETWEEN));
-       
     }
 }
 
-void JoysticksManager::addToLastRequests(JoystickModel *list, int size, const JoystickModel &newRequest)
-{
-    // Décaler tous les éléments vers la gauche
-    for (int i = 1; i < size; i++) {
-        list[i - 1] = list[i];
-    }
+void JoysticksManager::pushSample(JoystickModel* buf, int& sumX, int& sumY, const JoystickModel& sample) {
+    // Remove oldest
+    sumX -= buf[idx].x;
+    sumY -= buf[idx].y;
 
-    // Ajouter le nouvel élément à la fin
-    list[size - 1] = newRequest;
+    // Insert new
+    buf[idx] = sample;
+    sumX += sample.x;
+    sumY += sample.y;
+
+    // Advance index
+    idx = (idx + 1) % NBR_INCR_JOYSTICK;
 }
 
-JoystickModel JoysticksManager::calculateAverageDTO(const JoystickModel *list, int size) {
-    if (size == 0) return {}; // Retourne un objet vide si la liste est vide
-
-    double sumX = 0.0, sumY = 0.0;
-    int count = 0;
-
-    for (int i = 0; i < size; i++) {
-        sumX += list[i].x;
-        sumY += list[i].y;
-        count++;
-    }
-
-    // Éviter la division par zéro
-    int avgX = (count > 0) ? static_cast<int>(sumX / count) : 0;
-    int avgY = (count > 0) ? static_cast<int>(sumY / count) : 0;
-
-    return JoystickModel(avgX, avgY);
+JoystickModel JoysticksManager::getAverage(int sumX, int sumY) const {
+    int avgX = sumX / NBR_INCR_JOYSTICK;
+    int avgY = sumY / NBR_INCR_JOYSTICK;
+    return {avgX, avgY};
 }
 
-
-void JoysticksManager::initJoystick()
-{
-    adc1_config_channel_atten(pinJoystickLeftX, ADC_ATTEN_DB_11);
-    adc1_config_channel_atten(pinJoystickLeftY, ADC_ATTEN_DB_11);
-    adc1_config_channel_atten(pinJoystickRightX, ADC_ATTEN_DB_11);
-    adc1_config_channel_atten(pinJoystickRightY, ADC_ATTEN_DB_11);
+void JoysticksManager::initJoystick() {
+    for (auto ch : pins) {
+        adc1_config_channel_atten(ch, ADC_ATTEN_DB_11);
+    }
 }
