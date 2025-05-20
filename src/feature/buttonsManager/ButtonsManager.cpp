@@ -35,11 +35,11 @@ void ButtonsManager::Task()
             buttonPressedMotorState = false; 
             espNowHandler->send_data(controllerRequestDTO);
         }
-        if (buttonPressedEmergencyStop) {
+        if (buttonPressedMotorArming) {
             ControllerRequestDTO controllerRequestDTO;
-            controllerRequestDTO.buttonEmergencyStop=new bool(true);
+            controllerRequestDTO.buttonMotorArming=new bool(true);
             controllerRequestDTO.initCounter();
-            buttonPressedEmergencyStop = false; 
+            buttonPressedMotorArming = false; 
             espNowHandler->send_data(controllerRequestDTO);
         }
         vTaskDelay(pdMS_TO_TICKS(50));
@@ -49,7 +49,7 @@ void ButtonsManager::Task()
 void IRAM_ATTR ButtonsManager::button_isr_handler_emergency(void *arg)
 {
     ButtonsManager* self = static_cast<ButtonsManager*>(arg);
-    self->buttonPressedEmergencyStop = true;
+    self->buttonPressedMotorArming = true;
 }
 void IRAM_ATTR ButtonsManager::button_isr_handler_motor(void *arg)
 {
