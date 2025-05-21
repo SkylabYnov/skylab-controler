@@ -10,7 +10,7 @@ ButtonsManager::ButtonsManager(EspNowHandler *espNowHandler) : espNowHandler(esp
 void ButtonsManager::initButton()
 {
     gpio_config_t io_conf = {};
-    io_conf.pin_bit_mask = (1ULL << pinButtonEmergencyStop) | (1ULL << pinButtonMotorState);
+    io_conf.pin_bit_mask = (1ULL << pinButtonArming) | (1ULL << pinButtonMotorState);
     io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
     io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
@@ -18,7 +18,7 @@ void ButtonsManager::initButton()
     gpio_config(&io_conf);
 
     gpio_install_isr_service(0);
-    gpio_isr_handler_add(pinButtonEmergencyStop, button_isr_handler_emergency, this);
+    gpio_isr_handler_add(pinButtonArming, button_isr_handler_arming, this);
     gpio_isr_handler_add(pinButtonMotorState, button_isr_handler_motor, this);
 }
 
@@ -46,7 +46,7 @@ void ButtonsManager::Task()
     }
 }
 
-void IRAM_ATTR ButtonsManager::button_isr_handler_emergency(void *arg)
+void IRAM_ATTR ButtonsManager::button_isr_handler_arming(void *arg)
 {
     ButtonsManager *self = static_cast<ButtonsManager *>(arg);
     self->buttonPressedMotorArming = true;
