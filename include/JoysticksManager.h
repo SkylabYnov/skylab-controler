@@ -21,10 +21,10 @@ public:
 
 private:
     static constexpr adc1_channel_t pins[4] = {
-        ADC1_CHANNEL_6, // Left X
-        ADC1_CHANNEL_7, // Left Y
-        ADC1_CHANNEL_4, // Right X
-        ADC1_CHANNEL_5  // Right Y
+        ADC1_CHANNEL_6, // Left X GPIO 34
+        ADC1_CHANNEL_7, // Left Y GPIO 35
+        ADC1_CHANNEL_4, // Right X GPIO 32
+        ADC1_CHANNEL_5  // Right Y GPIO 33
     };
     EspNowHandler *espNowHandler;
     static constexpr const char *Tag = "JoysticksManager";
