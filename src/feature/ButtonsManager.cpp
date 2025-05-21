@@ -28,16 +28,18 @@ void ButtonsManager::Task()
     {
         if (buttonPressedMotorState)
         {
+            buttonPressedMotorStateValue = !buttonPressedMotorStateValue;
             ControllerRequestDTO controllerRequestDTO;
-            controllerRequestDTO.buttonMotorState = new bool(true);
+            controllerRequestDTO.buttonMotorState = new bool(buttonPressedMotorStateValue);
             controllerRequestDTO.initCounter();
             buttonPressedMotorState = false;
             espNowHandler->send_data(controllerRequestDTO);
         }
         if (buttonPressedMotorArming)
         {
+            buttonPressedMotorArmingValue = !buttonPressedMotorArmingValue;
             ControllerRequestDTO controllerRequestDTO;
-            controllerRequestDTO.buttonMotorArming = new bool(true);
+            controllerRequestDTO.buttonMotorArming = new bool(buttonPressedMotorArmingValue);
             controllerRequestDTO.initCounter();
             buttonPressedMotorArming = false;
             espNowHandler->send_data(controllerRequestDTO);
