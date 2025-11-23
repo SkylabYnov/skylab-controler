@@ -3,7 +3,6 @@
 #include "freertos/task.h"
 
 // TAG pour le système de log ESP-IDF
-static const char *TAG = "READ_PC";
 
 // --- Constructeur et Destructeur ---
 
@@ -88,9 +87,13 @@ void ReadComputer::task_loop() {
         // Decode struct
         ControllerPacket *p = (ControllerPacket*)payload;
 
-        JoystickModel left(p->LeftStickX * JoystickModel::JOYSTICK_MAX, p->LeftStickY * JoystickModel::JOYSTICK_MAX);
-        JoystickModel right(p->RightStickX * JoystickModel::JOYSTICK_MAX, p->RightStickY * JoystickModel::JOYSTICK_MAX);
+        int16_t newLeftX = (int16_t)(((p->LeftStickX + 1.0f) / 2.0f) * JoystickModel::JOYSTICK_MAX);
+        int16_t newLeftY = (int16_t)(((p->LeftStickY + 1.0f) / 2.0f) * JoystickModel::JOYSTICK_MAX);
+        JoystickModel left(newLeftX, newLeftY);
 
+        int16_t newRightX = (int16_t)(((p->RightStickX + 1.0f) / 2.0f) * JoystickModel::JOYSTICK_MAX);
+        int16_t newRightY = (int16_t)(((p->RightStickY + 1.0f) / 2.0f) * JoystickModel::JOYSTICK_MAX);
+        JoystickModel right(newRightX, newRightY);
         
         if (lastLeft != left || lastRight != right)
         {
@@ -132,4 +135,25 @@ uint8_t ReadComputer::compute_checksum(const uint8_t *data, size_t len)
         sum += data[i];
     }
     return sum & 0xFF; // garder seulement 1 octet
+}
+void ReadComputer::pushSample(JoystickModel *buf, int &sumX, int &sumY, const JoystickModel &sample)
+{
+    // Remove oldest
+    sumX -= buf[idx].x;
+    sumY -= buf[idx].y;
+
+    // Insert new
+    buf[idx] = sample;
+    sumX += sample.x;
+    sumY += sample.y;
+
+    // Advance index
+    idx = (idx + 1) % NBR_INCR_JOYSTICK;
+}
+
+JoystickModel ReadComputer::getAverage(int sumX, int sumY) const
+{
+    int avgX = sumX / NBR_INCR_JOYSTICK;
+    int avgY = sumY / NBR_INCR_JOYSTICK;
+    return {avgX, avgY};
 }
