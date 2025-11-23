@@ -6,6 +6,10 @@
 #include <string.h>
 #include "EspNowHandler.h"
 
+
+#define NBR_INCR_JOYSTICK 10
+
+
 struct ControllerPacket {
     float RightStickY;
     float RightStickX;
@@ -17,12 +21,25 @@ struct ControllerPacket {
 
 class ReadComputer {
 private:
+    static constexpr const char *TAG = "ReadComputer";
+
     EspNowHandler *espNowHandler;
     const int BUF_SIZE = 1024;
     const int RD_BUF_SIZE = 1024;
 
     JoystickModel lastLeft;
     JoystickModel lastRight;
+
+
+    JoystickModel bufferLeft[NBR_INCR_JOYSTICK]{};
+    JoystickModel bufferRight[NBR_INCR_JOYSTICK]{};
+
+    int idx = 0;
+    int sumLeftX = 0, sumLeftY = 0;
+    int sumRightX = 0, sumRightY = 0;
+
+    void pushSample(JoystickModel *buf, int &sumX, int &sumY, const JoystickModel &sample);
+    JoystickModel getAverage(int sumX, int sumY) const;
 
     bool lastMotorArming = false;
     bool lastMotorState = false;
