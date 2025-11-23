@@ -2,8 +2,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-// TAG pour le système de log ESP-IDF
-
 // --- Constructeur et Destructeur ---
 
 ReadComputer::ReadComputer(EspNowHandler *espNowHandler, int baud_rate): espNowHandler(espNowHandler) {

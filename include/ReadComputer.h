@@ -6,7 +6,9 @@
 #include <string.h>
 #include "EspNowHandler.h"
 
+
 #define NBR_INCR_JOYSTICK 10
+
 
 struct ControllerPacket {
     float RightStickY;
@@ -20,12 +22,14 @@ struct ControllerPacket {
 class ReadComputer {
 private:
     static constexpr const char *TAG = "ReadComputer";
+
     EspNowHandler *espNowHandler;
     const int BUF_SIZE = 1024;
     const int RD_BUF_SIZE = 1024;
 
     JoystickModel lastLeft;
     JoystickModel lastRight;
+
 
     JoystickModel bufferLeft[NBR_INCR_JOYSTICK]{};
     JoystickModel bufferRight[NBR_INCR_JOYSTICK]{};
