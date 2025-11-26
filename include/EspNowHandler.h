@@ -12,18 +12,32 @@
 // #define ESP_MAC {0xA0, 0xDD, 0x6C, 0x10, 0x3E, 0x34}  // MAC ESP Max
 #define ESP_MAC {0x6C, 0xC8, 0x40, 0x5C, 0x16, 0xF4}  // MAC ESP Max
 
-class EspNowHandler
-{
+class EspNowHandler {
 public:
     EspNowHandler();
     ~EspNowHandler();
 
     bool init();
+
+    void start_pairing();
+    void on_button_pressed();
+
     void send_data(const ControllerRequestDTO &requestDto);
     void send_ping();
 
 private:
-    static uint8_t peer_mac[6];
+    static void IRAM_ATTR button_isr_handler(void* arg);
+    static void button_task(void* pv);
+
+    static void pairing_led_task(void *pv);
+    static void pairing_broadcast_task(void *pv);
+
+    static EspNowHandler* instance;
+    static bool button_pressed_flag;
+
+    uint8_t peer_mac[6]{};
+    bool isPaired{};
+    bool isPairing{};
 };
 
 #endif // ESP_NOW_HANDLER_H
