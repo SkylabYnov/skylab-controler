@@ -8,8 +8,9 @@
 #include <ControllerRequestDTO.h>
 #include <nvs_flash.h>
 
-#define ESP_MAC {0xAC, 0x15, 0x18, 0xE6, 0x35, 0x68} // MAC du Drone
+// #define ESP_MAC {0xAC, 0x15, 0x18, 0xE6, 0x35, 0x68} // MAC du Drone
 // #define ESP_MAC {0xA0, 0xDD, 0x6C, 0x10, 0x3E, 0x34}  // MAC ESP Max
+#define ESP_MAC {0x6C, 0xC8, 0x40, 0x5C, 0x16, 0xF4}  // MAC ESP Max
 
 class EspNowHandler
 {
@@ -19,6 +20,7 @@ public:
 
     bool init();
     void send_data(const ControllerRequestDTO &requestDto);
+    void send_ping();
 
 private:
     static uint8_t peer_mac[6];
