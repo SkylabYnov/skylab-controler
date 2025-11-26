@@ -1,43 +1,61 @@
 #ifndef ESP_NOW_HANDLER_H
 #define ESP_NOW_HANDLER_H
 
-#include <esp_now.h>
-#include <esp_wifi.h>
-#include <esp_log.h>
-#include <string.h>
+#include <stdint.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <ControllerRequestDTO.h>
-#include <nvs_flash.h>
-
-// #define ESP_MAC {0xAC, 0x15, 0x18, 0xE6, 0x35, 0x68} // MAC du Drone
-// #define ESP_MAC {0xA0, 0xDD, 0x6C, 0x10, 0x3E, 0x34}  // MAC ESP Max
-#define ESP_MAC {0x6C, 0xC8, 0x40, 0x5C, 0x16, 0xF4}  // MAC ESP Max
 
 class EspNowHandler {
 public:
     EspNowHandler();
     ~EspNowHandler();
 
+    /**
+     * @brief Initialise le WiFi, ESP-NOW, les GPIOs et charge le MAC pair depuis NVS.
+     * @return true si l'initialisation réussit, false sinon.
+     */
     bool init();
 
+    /**
+     * @brief Démarre le mode appairage (LED clignotante et broadcast).
+     */
     void start_pairing();
-    void on_button_pressed();
 
+    /**
+     * @brief Envoie les données de contrôle au pair (Drone).
+     */
     void send_data(const ControllerRequestDTO &requestDto);
+    
+    /**
+     * @brief Envoie un ping au pair.
+     */
     void send_ping();
 
-private:
-    static void IRAM_ATTR button_isr_handler(void* arg);
-    static void button_task(void* pv);
+    /**
+     * @brief Réinitialise l'appairage (supprime le MAC de NVS et les pairs ESP-NOW).
+     */
+    void resetAssociation();
 
+private:
+    // Tâches statiques (FreeRTOS)
+    static void button_task(void* pv);
     static void pairing_led_task(void *pv);
     static void pairing_broadcast_task(void *pv);
 
+    // Méthodes NVS
+    bool loadPeerMacFromNvs();
+    bool savePeerMacToNvs();
+    void erasePeerMacFromNvs();
+
+    // Singleton instance
     static EspNowHandler* instance;
-    static bool button_pressed_flag;
 
     uint8_t peer_mac[6]{};
-    bool isPaired{};
-    bool isPairing{};
+    bool _associationMode = false; // Remplacé _associationMode par _associationMode pour une meilleure sémantique
+    
+    TaskHandle_t _pairingLedTaskHandle = nullptr; // Handle pour la tâche LED
+    TaskHandle_t _pairingBroadcastTaskHandle = nullptr; // Handle pour la tâche Broadcast
 };
 
 #endif // ESP_NOW_HANDLER_H
