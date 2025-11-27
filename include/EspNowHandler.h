@@ -5,6 +5,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <ControllerRequestDTO.h>
+#include <esp_now.h>
 
 #define PIN_LED_ASSOCIATION GPIO_NUM_2
 
@@ -37,6 +38,9 @@ private:
     bool _associationMode = false; // Remplacé _associationMode par _associationMode pour une meilleure sémantique
     bool currentLedState = false;
     static int64_t lastToggleTimeUs;
+
+    static void onDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len);
+    static void onDataSent(const uint8_t *macAddr, esp_now_send_status_t status);
 };
 
 #endif // ESP_NOW_HANDLER_H

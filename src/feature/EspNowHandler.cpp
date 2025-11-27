@@ -10,7 +10,6 @@
 #include <esp_mac.h>
 #include <esp_wifi.h>
 #include <nvs_flash.h>
-#include <esp_now.h>
 #include <driver/gpio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -21,15 +20,15 @@
 EspNowHandler *EspNowHandler::instance = nullptr;
 int64_t EspNowHandler::lastToggleTimeUs = 0;
 
-EspNowHandler::EspNowHandler() = default;
-EspNowHandler::~EspNowHandler() = default;
+EspNowHandler::EspNowHandler() {
+    instance = this; // Enregistre l'instance actuelle pour le callback
+}
 
-// ... La fonction init() est conservée telle quelle, car la logique principale est correcte.
-// Seul le commentaire sur _associationMode est ajusté.
+EspNowHandler::~EspNowHandler() {
+    if (instance == this) instance = nullptr;
+}
 
 bool EspNowHandler::init() {
-    instance = this;
-
     // 1. Initialisation WiFi (Mode Station)
     ESP_ERROR_CHECK(nvs_flash_init());
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -94,63 +93,8 @@ bool EspNowHandler::init() {
     }
 
     // 7. Callback Réception ESP-NOW
-    esp_now_register_recv_cb([](const esp_now_recv_info_t *info, const uint8_t *data, int len) {
-        if (!instance) return;
-
-        // Si on n'est PAS associé (mode appairage)
-        if (instance->_associationMode) { 
-            if (len == sizeof(PairingPacket)) {
-                PairingPacket pkt;
-                memcpy(&pkt, data, sizeof(pkt));
-
-                if (strncmp(pkt.magic, "AERISYS_DRONE_PAIR", sizeof(pkt.magic)) == 0){
-                    instance->_associationMode = false;
-                    ESP_LOGI(TAG, "Paquet d'appairage reçu !");
-                    
-                    memcpy(instance->peer_mac, info->src_addr, 6);
-                    instance->savePeerMacToNvs();
-
-                    esp_now_peer_info_t peer = {};
-                    memcpy(peer.peer_addr, info->src_addr, 6);
-                    peer.channel = 0;
-                    peer.encrypt = false;
-                    if (!esp_now_is_peer_exist(info->src_addr)) esp_now_add_peer(&peer);
-
-                     // Confirmation d'appairage réussi
-                    ESP_LOGI(TAG, "Appairage réussi !");
-
-                    // Envoi de la confirmation au drone
-                    PairingPacket confirm_dto = {};
-                    strncpy(confirm_dto.magic, "PAIR_CONFIRM", sizeof(confirm_dto.magic));
-                    esp_read_mac(confirm_dto.mac, ESP_MAC_WIFI_STA); 
-
-                    esp_err_t result = esp_now_send(instance->peer_mac, (uint8_t *) &confirm_dto, sizeof(confirm_dto));
-
-                    if (result == ESP_OK) {
-                        ESP_LOGI(TAG, "Confirmation d'association envoyée");
-                    } else {
-                        ESP_LOGE(TAG, "Erreur envoi confirmation : %s", esp_err_to_name(result));
-                    }
-                }
-            }
-        } 
-        // Si on est associé
-        else {
-             if (len == sizeof(PingRequestDTO)) {
-                PingRequestDTO ping;
-                memcpy(&ping, data, sizeof(ping));
-                ESP_LOGI(TAG, "Ping/Statut reçu : %s", ping.pingState ? "ON" : "OFF");
-            }
-        }
-    });
-
-    // 8. Callback envoi (pour le debug)
-    esp_now_register_send_cb([](const uint8_t *mac, esp_now_send_status_t status) {
-        if (status != ESP_NOW_SEND_SUCCESS) {
-            ESP_LOGW(TAG, "Envoi au MAC %02x:%02x:%02x:%02x:%02x:%02x: Échec", 
-                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-        }
-    });
+    esp_now_register_recv_cb(EspNowHandler::onDataRecv);
+    esp_now_register_send_cb(EspNowHandler::onDataSent);
 
     ESP_LOGI(TAG, "ESP-NOW Initialisé (manette)");
     return true;
@@ -230,6 +174,64 @@ void EspNowHandler::resetAssociation() {
 
     // 4. Activation du mode association
     _associationMode = true;
+}
+
+void EspNowHandler::onDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len)
+{
+    if (!instance) return;
+
+        // Si on n'est PAS associé (mode appairage)
+        if (instance->_associationMode) { 
+            if (len == sizeof(PairingPacket)) {
+                PairingPacket pkt;
+                memcpy(&pkt, data, sizeof(pkt));
+
+                if (strncmp(pkt.magic, REQ_MAGIC, sizeof(pkt.magic)) == 0){
+                    instance->_associationMode = false;
+                    ESP_LOGI(TAG, "Paquet d'appairage reçu !");
+                    
+                    memcpy(instance->peer_mac, info->src_addr, 6);
+                    instance->savePeerMacToNvs();
+
+                    esp_now_peer_info_t peer = {};
+                    memcpy(peer.peer_addr, info->src_addr, 6);
+                    peer.channel = 0;
+                    peer.encrypt = false;
+                    if (!esp_now_is_peer_exist(info->src_addr)) esp_now_add_peer(&peer);
+
+                     // Confirmation d'appairage réussi
+                    ESP_LOGI(TAG, "Appairage réussi !");
+
+                    // Envoi de la confirmation au drone
+                    PairingPacket confirm_dto = {};
+                    strncpy(confirm_dto.magic, RESP_MAGIC, sizeof(confirm_dto.magic));
+
+                    esp_err_t result = esp_now_send(instance->peer_mac, (uint8_t *) &confirm_dto, sizeof(confirm_dto));
+
+                    if (result == ESP_OK) {
+                        ESP_LOGI(TAG, "Confirmation d'association envoyée");
+                    } else {
+                        ESP_LOGE(TAG, "Erreur envoi confirmation : %s", esp_err_to_name(result));
+                    }
+                }
+            }
+        } 
+        // Si on est associé
+        else {
+             if (len == sizeof(PingRequestDTO)) {
+                PingRequestDTO ping;
+                memcpy(&ping, data, sizeof(ping));
+                ESP_LOGI(TAG, "Ping/Statut reçu : %s", ping.pingState ? "ON" : "OFF");
+            }
+        }
+}
+
+void EspNowHandler::onDataSent(const uint8_t *macAddr, esp_now_send_status_t status) {
+    // Optionnel : ne logger que les erreurs pour éviter de saturer la console
+    if (status != ESP_NOW_SEND_SUCCESS) {
+        ESP_LOGW(TAG, "Échec envoi vers %02x:%02x:%02x:%02x:%02x:%02x (Statut : %d)", 
+                 macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5], status);
+    }
 }
 
 void EspNowHandler::updateAssociationLed() {
