@@ -31,7 +31,7 @@ extern "C" void app_main()
         "espNowTask",         // Nom de la tâche
         4096,                   // Taille de la pile (en octets, souvent 4096 pour une tâche C++)
         espNow,                 // Argument : Pointeur 'this' vers l'instance
-        5, // Priorité (élevée)
+        1, // Priorité (élevée)
         NULL                    // Handle de tâche (non utilisé ici)
     );
 

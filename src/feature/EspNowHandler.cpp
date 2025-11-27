@@ -14,6 +14,8 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_timer.h>
+#include <mpuDTO.h>
+#include "driver/uart.h"
 
 #define TAG "ESP_NOW_CONTROLLER"
 
@@ -180,50 +182,67 @@ void EspNowHandler::onDataRecv(const esp_now_recv_info_t *info, const uint8_t *d
 {
     if (!instance) return;
 
-        // Si on n'est PAS associé (mode appairage)
-        if (instance->_associationMode) { 
-            if (len == sizeof(PairingPacket)) {
-                PairingPacket pkt;
-                memcpy(&pkt, data, sizeof(pkt));
+    // Si on n'est PAS associé (mode appairage)
+    if (instance->_associationMode) { 
+        if (len == sizeof(PairingPacket)) {
+            PairingPacket pkt;
+            memcpy(&pkt, data, sizeof(pkt));
 
-                if (strncmp(pkt.magic, REQ_MAGIC, sizeof(pkt.magic)) == 0){
-                    instance->_associationMode = false;
-                    ESP_LOGI(TAG, "Paquet d'appairage reçu !");
-                    
-                    memcpy(instance->peer_mac, info->src_addr, 6);
-                    instance->savePeerMacToNvs();
+            if (strncmp(pkt.magic, REQ_MAGIC, sizeof(pkt.magic)) == 0){
+                instance->_associationMode = false;
+                ESP_LOGI(TAG, "Paquet d'appairage reçu !");
+                
+                memcpy(instance->peer_mac, info->src_addr, 6);
+                instance->savePeerMacToNvs();
 
-                    esp_now_peer_info_t peer = {};
-                    memcpy(peer.peer_addr, info->src_addr, 6);
-                    peer.channel = 0;
-                    peer.encrypt = false;
-                    if (!esp_now_is_peer_exist(info->src_addr)) esp_now_add_peer(&peer);
+                esp_now_peer_info_t peer = {};
+                memcpy(peer.peer_addr, info->src_addr, 6);
+                peer.channel = 0;
+                peer.encrypt = false;
+                if (!esp_now_is_peer_exist(info->src_addr)) esp_now_add_peer(&peer);
 
-                     // Confirmation d'appairage réussi
-                    ESP_LOGI(TAG, "Appairage réussi !");
+                    // Confirmation d'appairage réussi
+                ESP_LOGI(TAG, "Appairage réussi !");
 
-                    // Envoi de la confirmation au drone
-                    PairingPacket confirm_dto = {};
-                    strncpy(confirm_dto.magic, RESP_MAGIC, sizeof(confirm_dto.magic));
+                // Envoi de la confirmation au drone
+                PairingPacket confirm_dto = {};
+                strncpy(confirm_dto.magic, RESP_MAGIC, sizeof(confirm_dto.magic));
 
-                    esp_err_t result = esp_now_send(instance->peer_mac, (uint8_t *) &confirm_dto, sizeof(confirm_dto));
+                esp_err_t result = esp_now_send(instance->peer_mac, (uint8_t *) &confirm_dto, sizeof(confirm_dto));
 
-                    if (result == ESP_OK) {
-                        ESP_LOGI(TAG, "Confirmation d'association envoyée");
-                    } else {
-                        ESP_LOGE(TAG, "Erreur envoi confirmation : %s", esp_err_to_name(result));
-                    }
+                if (result == ESP_OK) {
+                    ESP_LOGI(TAG, "Confirmation d'association envoyée");
+                } else {
+                    ESP_LOGE(TAG, "Erreur envoi confirmation : %s", esp_err_to_name(result));
                 }
             }
-        } 
-        // Si on est associé
-        else {
-             if (len == sizeof(PingRequestDTO)) {
-                PingRequestDTO ping;
-                memcpy(&ping, data, sizeof(ping));
-                ESP_LOGI(TAG, "Ping/Statut reçu : %s", ping.pingState ? "ON" : "OFF");
-            }
         }
+
+    } 
+    // Si on est associé
+    else {
+            if (len == sizeof(PingRequestDTO)) {
+            PingRequestDTO ping;
+            memcpy(&ping, data, sizeof(ping));
+            ESP_LOGI(TAG, "Ping/Statut reçu : %s", ping.pingState ? "ON" : "OFF");
+        }
+        else if (len == sizeof(mpuDTO)) {
+            mpuDTO pkt;
+            memcpy(&pkt, data, sizeof(pkt));
+
+            char buffer[256];
+            int len = snprintf(buffer, sizeof(buffer),
+                "MPU_DATA,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+                pkt.accel.x, pkt.accel.y, pkt.accel.z,
+                pkt.gyro.x, pkt.gyro.y, pkt.gyro.z,
+                pkt.mag.x, pkt.mag.y, pkt.mag.z,
+                pkt.orientation.roll,
+                pkt.orientation.pitch,
+                pkt.orientation.yaw
+            );
+            uart_write_bytes(UART_NUM_0, buffer, len);
+        }
+    }
 }
 
 void EspNowHandler::onDataSent(const uint8_t *macAddr, esp_now_send_status_t status) {
