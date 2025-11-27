@@ -26,6 +26,15 @@ extern "C" void app_main()
         return;
     }
 
+    xTaskCreate(
+        espNow->Task,           // Fonction d'entrée statique
+        "espNowTask",         // Nom de la tâche
+        4096,                   // Taille de la pile (en octets, souvent 4096 pour une tâche C++)
+        espNow,                 // Argument : Pointeur 'this' vers l'instance
+        5, // Priorité (élevée)
+        NULL                    // Handle de tâche (non utilisé ici)
+    );
+
     if(modeComputer){
 
         ReadComputer *reader = new ReadComputer(espNow, 115200);

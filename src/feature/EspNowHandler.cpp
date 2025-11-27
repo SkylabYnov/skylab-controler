@@ -14,12 +14,12 @@
 #include <driver/gpio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <esp_timer.h>
 
 #define TAG "ESP_NOW_CONTROLLER"
-#define PAIRING_LED_GPIO GPIO_NUM_2
-#define BUTTON_GPIO GPIO_NUM_16
 
 EspNowHandler *EspNowHandler::instance = nullptr;
+int64_t EspNowHandler::lastToggleTimeUs = 0;
 
 EspNowHandler::EspNowHandler() = default;
 EspNowHandler::~EspNowHandler() = default;
@@ -44,13 +44,20 @@ bool EspNowHandler::init() {
     }
 
     // 3. Configuration GPIO (LED et bouton)
-    gpio_reset_pin(PAIRING_LED_GPIO);
-    gpio_set_direction(PAIRING_LED_GPIO, GPIO_MODE_OUTPUT);
-    gpio_set_level(PAIRING_LED_GPIO, 0);
+    gpio_reset_pin(PIN_LED_ASSOCIATION);
+    gpio_set_direction(PIN_LED_ASSOCIATION, GPIO_MODE_OUTPUT);
+    gpio_set_level(PIN_LED_ASSOCIATION, 0);
 
-    gpio_reset_pin(BUTTON_GPIO);
-    gpio_set_direction(BUTTON_GPIO, GPIO_MODE_INPUT);
-    gpio_set_pull_mode(BUTTON_GPIO, GPIO_PULLUP_ONLY);
+    gpio_reset_pin(PIN_BUTTON_ASSOCIATION);
+    gpio_set_direction(PIN_BUTTON_ASSOCIATION, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(PIN_BUTTON_ASSOCIATION, GPIO_PULLUP_ONLY);
+
+    // 🔥 Ajout important
+    gpio_set_intr_type(PIN_BUTTON_ASSOCIATION, GPIO_INTR_NEGEDGE);
+
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(PIN_BUTTON_ASSOCIATION, button_isr_handler_pairing, this);
+
 
     // 4. Chargement MAC depuis NVS
     bool macLoaded = loadPeerMacFromNvs();
@@ -73,33 +80,30 @@ bool EspNowHandler::init() {
 
         if (esp_now_add_peer(&peerInfo) != ESP_OK) {
             ESP_LOGE(TAG, "Erreur d'ajout du pair connu. Redémarrage du mode appairage.");
-            _associationMode = false; // Non associé = mode appairage
+            _associationMode = true; // Non associé = mode appairage
             start_pairing();
         } else {
-            _associationMode = true; // Associé
+            _associationMode = false; // Associé
             ESP_LOGI(TAG, "Pair connu ajouté : %02x:%02x:%02x:%02x:%02x:%02x", 
                      peer_mac[0], peer_mac[1], peer_mac[2], peer_mac[3], peer_mac[4], peer_mac[5]);
         }
     } else {
-        _associationMode = false; // Non associé = mode appairage
+        _associationMode = true; // Non associé = mode appairage
         ESP_LOGW(TAG, "Aucun pair connu. Démarrage du mode appairage.");
         start_pairing();
     }
-
-    // 6. Tâche qui gère le bouton (toujours active)
-    xTaskCreate(button_task, "button_task", 2048, nullptr, 1, nullptr);
 
     // 7. Callback Réception ESP-NOW
     esp_now_register_recv_cb([](const esp_now_recv_info_t *info, const uint8_t *data, int len) {
         if (!instance) return;
 
         // Si on n'est PAS associé (mode appairage)
-        if (!instance->_associationMode) { 
+        if (instance->_associationMode) { 
             if (len == sizeof(PairingPacket)) {
                 PairingPacket pkt;
                 memcpy(&pkt, data, sizeof(pkt));
 
-                if (memcmp(pkt.magic, "AERISYS_DRONE_PAIR", 18) == 0) {
+                if (strncmp(pkt.magic, "AERISYS_DRONE_PAIR", sizeof(pkt.magic)) == 0){
                     instance->_associationMode = false;
                     ESP_LOGI(TAG, "Paquet d'appairage reçu !");
                     
@@ -114,12 +118,6 @@ bool EspNowHandler::init() {
 
                      // Confirmation d'appairage réussi
                     ESP_LOGI(TAG, "Appairage réussi !");
-
-                    // Arrêt des tâches d'appairage (LED et Broadcast)
-                    if (instance->_pairingLedTaskHandle) vTaskDelete(instance->_pairingLedTaskHandle);
-                    if (instance->_pairingBroadcastTaskHandle) vTaskDelete(instance->_pairingBroadcastTaskHandle);
-                    instance->_pairingLedTaskHandle = nullptr;
-                    instance->_pairingBroadcastTaskHandle = nullptr;
 
                     // Envoi de la confirmation au drone
                     PairingPacket confirm_dto = {};
@@ -158,72 +156,14 @@ bool EspNowHandler::init() {
     return true;
 }
 
-// --- Tâches FreeRTOS ---
-
-void EspNowHandler::button_task(void *pv) {
-    bool last_pressed = false;
-    while (true) {
-        int current_level = gpio_get_level(BUTTON_GPIO);
-        bool currently_pressed = (current_level == 0);
-
-        if (currently_pressed && !last_pressed && instance) {
-            if (instance->_associationMode) {
-                // Si associé -> Reset et redémarrage du pairing
-                ESP_LOGW(TAG, "Bouton: Reset association demandé.");
-                instance->resetAssociation();
-            } else {
-                // Si non associé -> Démarrage du pairing (si pas déjà en cours)
-                ESP_LOGW(TAG, "Bouton: Démarrage appairage (si non en cours).");
-                instance->start_pairing();
-            }
-        }
-
-        last_pressed = currently_pressed;
-        vTaskDelay(pdMS_TO_TICKS(50));
-    }
-}
 
 void EspNowHandler::start_pairing() {
-    // Si déjà associé, on ne fait rien
-    if (_associationMode) { 
-        ESP_LOGI(TAG, "Déjà associé, ignorer start_pairing.");
-        return;
-    }
-    
-    // Si les tâches existent déjà (déjà en pairing), on ne fait rien
-    if (_pairingLedTaskHandle || _pairingBroadcastTaskHandle) {
-        ESP_LOGI(TAG, "Déjà en mode appairage. Ne relance pas les tâches.");
-        return;
+    // Si on est déjà en appairage, ne PAS bloquer → on continue
+    if (_associationMode) {
+        ESP_LOGI(TAG, "Déjà en mode appairage.");
     }
 
-    ESP_LOGI(TAG, "Démarrage appairage...");
-
-    // LED clignotante
-    xTaskCreate(pairing_led_task, "pairing_led_task", 2048, nullptr, 1, &_pairingLedTaskHandle);
-    // Broadcast pairing
-    xTaskCreate(pairing_broadcast_task, "pairing_broadcast_task", 4096, nullptr, 1, &_pairingBroadcastTaskHandle);
-}
-
-// 💥 CORRECTION MAJEURE ICI 💥
-void EspNowHandler::pairing_led_task(void *pv) {
-    // La boucle continue tant que l'instance existe ET qu'on n'est PAS associé
-    while (instance && !instance->_associationMode) { 
-        gpio_set_level(PAIRING_LED_GPIO, 1);
-        vTaskDelay(pdMS_TO_TICKS(300));
-        gpio_set_level(PAIRING_LED_GPIO, 0);
-        vTaskDelay(pdMS_TO_TICKS(300));
-    }
-    gpio_set_level(PAIRING_LED_GPIO, 0); // Éteindre la LED à la fin de l'appairage
-    instance->_pairingLedTaskHandle = nullptr; 
-    vTaskDelete(nullptr);
-}
-
-// 🛠️ CORRECTION DE LA BOUCLE ICI 🛠️
-void EspNowHandler::pairing_broadcast_task(void *pv) {
-    if (!instance) {
-        vTaskDelete(nullptr);
-        return;
-    }
+    _associationMode = true;
 
     uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     
@@ -231,31 +171,17 @@ void EspNowHandler::pairing_broadcast_task(void *pv) {
     memcpy(peerInfo.peer_addr, broadcastAddress, 6);
     peerInfo.channel = 0;
     peerInfo.encrypt = false;
+
     if (!esp_now_is_peer_exist(broadcastAddress)) {
         if (esp_now_add_peer(&peerInfo) != ESP_OK) {
             ESP_LOGE(TAG, "Erreur ajout pair Broadcast");
-            instance->_pairingBroadcastTaskHandle = nullptr;
-            vTaskDelete(nullptr);
             return;
         }
     }
 
-    // La boucle continue tant que l'instance existe ET qu'on n'est PAS associé
-    while (instance && !instance->_associationMode) { 
-        PairingPacket dto = {};
-        strncpy(dto.magic, "PAIR_CONFIRM", sizeof(dto.magic)); 
-        esp_read_mac(dto.mac, ESP_MAC_WIFI_STA);
-        esp_now_send(broadcastAddress, (uint8_t *) &dto, sizeof(dto));
-        ESP_LOGD(TAG, "Broadcast appairage envoyé.");
-        vTaskDelay(pdMS_TO_TICKS(1000)); // Envoie le paquet toutes les 1 seconde
-    }
-
-    // Suppression du pair broadcast après l'appairage (Optionnel, mais bonne pratique)
-    esp_now_del_peer(broadcastAddress);
-
-    instance->_pairingBroadcastTaskHandle = nullptr; 
-    vTaskDelete(nullptr);
+    ESP_LOGI(TAG, "Mode appairage ACTIVÉ (écoute broadcast)");
 }
+
 
 // --- Gestion NVS ---
 // Fonctions loadPeerMacFromNvs, savePeerMacToNvs, erasePeerMacFromNvs (implémentation conservée)
@@ -278,40 +204,94 @@ bool EspNowHandler::savePeerMacToNvs() {
     return true;
 }
 
-void EspNowHandler::erasePeerMacFromNvs() {
-     nvs_handle_t handle;
+void EspNowHandler::resetAssociation() {
+    // 1. Suppression de la MAC de la NVS
+    // Note: Pour une suppression complète, il faut effacer la clé dans NVS
+    nvs_handle_t handle;
     if (nvs_open("storage", NVS_READWRITE, &handle) == ESP_OK) {
         nvs_erase_key(handle, "controller_mac");
         nvs_commit(handle);
         nvs_close(handle);
         ESP_LOGI(TAG, "Ancienne MAC du pair effacée de la NVS.");
     }
-}
 
+    // 2. Suppression de tous les pairs ESP-NOW
+    esp_now_del_peer(peer_mac); // Supprime l'ancien pair connu (si existant)
 
-void EspNowHandler::resetAssociation() {
-    ESP_LOGW(TAG, "Réinitialisation de l'association...");
-
-    // 2. Suppression de la MAC de la NVS
-    erasePeerMacFromNvs();
-
-    // 3. Suppression du pair connu
-    if (esp_now_is_peer_exist(peer_mac)) {
-        esp_now_del_peer(peer_mac); 
+    // Optionnel : Effacer le reste de la liste des pairs (y compris l'adresse de broadcast si elle n'est plus nécessaire)
+    esp_now_peer_info_t peerInfo = {};
+    while (esp_now_fetch_peer(true, &peerInfo) == ESP_OK) {
+        esp_now_del_peer(peerInfo.peer_addr);
     }
+    ESP_LOGI(TAG, "Tous les pairs ESP-NOW existants ont été supprimés.");
 
-    // 4. Réinitialiser la MAC locale
+    // 3. Réinitialiser la MAC locale (pour l'affichage futur)
     memset(peer_mac, 0, 6); 
 
-    // 5. Désactivation du mode associé et démarrage du pairing
-    _associationMode = false;
-    start_pairing();
+    // 4. Activation du mode association
+    _associationMode = true;
 }
+
+void EspNowHandler::updateAssociationLed() {
+    int64_t now = esp_timer_get_time();
+    
+    // --- Étape 1 : Vérification du Mode Association ---
+    if (_associationMode) {
+        int64_t timeElapsed = now - EspNowHandler::lastToggleTimeUs;
+        if (timeElapsed > 200000LL) {             
+            gpio_set_level(PIN_LED_ASSOCIATION, !currentLedState);
+            
+            currentLedState = !currentLedState;
+            EspNowHandler::lastToggleTimeUs = now;
+            
+            ESP_LOGD(TAG, "lastToggleTimeUs mis à jour à %lld.", EspNowHandler::lastToggleTimeUs);
+
+        } else {
+            ESP_LOGD(TAG, "LED Association : Attente pour le prochain basculement.");
+        }
+        
+    } else {
+        currentLedState = false;
+        gpio_set_level(PIN_LED_ASSOCIATION, currentLedState); 
+        ESP_LOGD(TAG, "LED Association : Mode Inactif (Éteinte)."); 
+    }
+}
+
+void EspNowHandler::Task(void* pvParameter) 
+{
+    int64_t lastPingTime = esp_timer_get_time();
+    EspNowHandler* instance = static_cast<EspNowHandler*>(pvParameter);
+    while (true) {
+        instance->updateAssociationLed();
+
+        int64_t now = esp_timer_get_time();
+        if (now - lastPingTime >= 1000000)
+        {
+            instance->send_ping();
+            lastPingTime = now;
+        }
+
+        if (instance->buttonPressedPairing && instance->_associationMode == false) {
+            ESP_LOGI(TAG, "Bouton d'association pressé, lancement du RESET d'association.");
+            instance->resetAssociation();
+            instance->buttonPressedPairing = false;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10)); 
+    }
+}
+
+void IRAM_ATTR EspNowHandler::button_isr_handler_pairing(void *arg)
+{
+    EspNowHandler *self = static_cast<EspNowHandler *>(arg);
+    self->buttonPressedPairing = true;
+}
+
 
 // --- Envoi de données ---
 
 void EspNowHandler::send_data(const ControllerRequestDTO &controllerRequestDTO) {
-    if (!_associationMode) { 
+    if (_associationMode) { 
         ESP_LOGW(TAG, "Drone non appairé ! Impossible d'envoyer les données de contrôle.");
         return;
     }
@@ -324,7 +304,7 @@ void EspNowHandler::send_data(const ControllerRequestDTO &controllerRequestDTO) 
 }
 
 void EspNowHandler::send_ping() {
-    if (!_associationMode) { 
+    if (_associationMode) { 
         ESP_LOGW(TAG, "Drone non appairé ! Impossible d'envoyer le ping.");
         return;
     }

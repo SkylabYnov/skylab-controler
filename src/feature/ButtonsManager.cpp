@@ -25,7 +25,6 @@ void ButtonsManager::initButton()
 
 void ButtonsManager::Task()
 {
-    int64_t lastPingTime = esp_timer_get_time();
     while (true)
     {
         if (buttonPressedMotorState)
@@ -47,12 +46,6 @@ void ButtonsManager::Task()
             espNowHandler->send_data(controllerRequestDTO);
         }
         vTaskDelay(pdMS_TO_TICKS(50));
-        int64_t now = esp_timer_get_time();
-        if (now - lastPingTime >= 1000000)
-        {
-            espNowHandler->send_ping();
-            lastPingTime = now;
-        }
     }
 }
 
