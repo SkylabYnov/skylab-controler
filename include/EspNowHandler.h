@@ -1,29 +1,46 @@
 #ifndef ESP_NOW_HANDLER_H
 #define ESP_NOW_HANDLER_H
 
-#include <esp_now.h>
-#include <esp_wifi.h>
-#include <esp_log.h>
-#include <string.h>
+#include <stdint.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <ControllerRequestDTO.h>
-#include <nvs_flash.h>
+#include <esp_now.h>
 
-// #define ESP_MAC {0xAC, 0x15, 0x18, 0xE6, 0x35, 0x68} // MAC du Drone
-// #define ESP_MAC {0xA0, 0xDD, 0x6C, 0x10, 0x3E, 0x34}  // MAC ESP Max
-#define ESP_MAC {0x6C, 0xC8, 0x40, 0x5C, 0x16, 0xF4}  // MAC ESP Max
+#define PIN_LED_ASSOCIATION GPIO_NUM_2
 
-class EspNowHandler
-{
+#define PIN_BUTTON_ASSOCIATION GPIO_NUM_16
+
+class EspNowHandler {
 public:
     EspNowHandler();
     ~EspNowHandler();
 
     bool init();
+    void start_pairing();
     void send_data(const ControllerRequestDTO &requestDto);
     void send_ping();
+    static void Task(void* pvParameter);
 
 private:
-    static uint8_t peer_mac[6];
+    static void IRAM_ATTR button_isr_handler_pairing(void *arg);
+    volatile bool buttonPressedPairing = false;
+    // Méthodes NVS
+    bool loadPeerMacFromNvs();
+    bool savePeerMacToNvs();
+    void updateAssociationLed();
+    void resetAssociation();
+
+    // Singleton instance
+    static EspNowHandler* instance;
+
+    uint8_t peer_mac[6]{};
+    bool _associationMode = false; // Remplacé _associationMode par _associationMode pour une meilleure sémantique
+    bool currentLedState = false;
+    static int64_t lastToggleTimeUs;
+
+    static void onDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len);
+    static void onDataSent(const uint8_t *macAddr, esp_now_send_status_t status);
 };
 
 #endif // ESP_NOW_HANDLER_H
