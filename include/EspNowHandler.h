@@ -11,6 +11,8 @@
 
 #define PIN_BUTTON_ASSOCIATION GPIO_NUM_16
 
+#define LONG_PRESS_MS 5000
+
 class EspNowHandler {
 public:
     EspNowHandler();
@@ -23,8 +25,11 @@ public:
     static void Task(void* pvParameter);
 
 private:
-    static void IRAM_ATTR button_isr_handler_pairing(void *arg);
-    volatile bool buttonPressedPairing = false;
+    volatile bool buttonPressed = false;
+    volatile bool buttonLogPressedSucess = false;
+    volatile int64_t pressStartTime = 0;
+    void handleButtonPressLogic();
+
     // Méthodes NVS
     bool loadPeerMacFromNvs();
     bool savePeerMacToNvs();
