@@ -37,6 +37,13 @@ void JoysticksManager::Task()
             ControllerRequestDTO dto;
             dto.ConvertJoyStickToFlightController(avgLeft, avgRight);
             dto.initCounter();
+
+            if(LimiteJoystick != -1){
+                dto.flightController->throttle = dto.flightController->throttle * LimiteJoystick;
+            }
+
+            ESP_LOGI(Tag, "Envoi Joystick Left: %s Right: %s", avgLeft.toString().c_str(), avgRight.toString().c_str());
+
             espNowHandler->send_data(dto);
             lastLeft = avgLeft;
             lastRight = avgRight;

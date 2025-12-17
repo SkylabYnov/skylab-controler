@@ -12,6 +12,8 @@
 #define NBR_INCR_JOYSTICK 10
 #define TIME_MS_BETWEEN 10
 
+#define LimiteJoystick 0.4f //40% de la puissance si 0.4f et si -1 alors désactivé
+
 class JoysticksManager
 {
 public:
