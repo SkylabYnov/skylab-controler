@@ -98,6 +98,11 @@ void ReadComputer::task_loop() {
             ControllerRequestDTO dto;
             dto.ConvertJoyStickToFlightController(left, right);
             dto.initCounter();
+            
+            if(LimiteJoystick != -1){
+                dto.flightController->throttle = dto.flightController->throttle * LimiteJoystick;
+            }
+
             espNowHandler->send_data(dto);
             lastLeft = left;
             lastRight = right;

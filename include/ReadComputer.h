@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include <string.h>
 #include "EspNowHandler.h"
+#include <JoysticksManager.h>
 
 
 #define NBR_INCR_JOYSTICK 10
