@@ -241,13 +241,15 @@ void EspNowHandler::onDataRecv(const esp_now_recv_info_t *info, const uint8_t *d
 
             char buffer[256];
             int len = snprintf(buffer, sizeof(buffer),
-                "MPU_DATA,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+                "MPU_DATA,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
                 pkt.accel.x, pkt.accel.y, pkt.accel.z,
                 pkt.gyro.x, pkt.gyro.y, pkt.gyro.z,
                 pkt.mag.x, pkt.mag.y, pkt.mag.z,
                 pkt.orientation.roll,
                 pkt.orientation.pitch,
-                pkt.orientation.yaw
+                pkt.orientation.yaw,
+                pkt.motorSpeeds[0], pkt.motorSpeeds[1],
+                pkt.motorSpeeds[2], pkt.motorSpeeds[3]
             );
             uart_write_bytes(UART_NUM_0, buffer, len);
         }
