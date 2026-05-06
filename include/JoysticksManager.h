@@ -12,7 +12,7 @@
 #define NBR_INCR_JOYSTICK 10
 #define TIME_MS_BETWEEN 10
 
-#define LimiteJoystick 0.4f //40% de la puissance si 0.4f et si -1 alors désactivé
+#define LimiteJoystick -1 //40% de la puissance si 0.4f et si -1 alors désactivé
 
 class JoysticksManager
 {
@@ -23,8 +23,8 @@ public:
 
 private:
     static constexpr adc1_channel_t pins[4] = {
-        ADC1_CHANNEL_6, // Left X GPIO 34
-        ADC1_CHANNEL_7, // Left Y GPIO 35
+        ADC1_CHANNEL_6, // Left X GPIO 35
+        ADC1_CHANNEL_7, // Left Y GPIO 34
         ADC1_CHANNEL_4, // Right X GPIO 32
         ADC1_CHANNEL_5  // Right Y GPIO 33
     };
