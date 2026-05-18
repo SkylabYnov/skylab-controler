@@ -42,7 +42,11 @@ void JoysticksManager::Task()
                 dto.flightController->throttle = dto.flightController->throttle * LimiteJoystick;
             }
 
-            ESP_LOGI(Tag, "Envoi Joystick Left: %s Right: %s", avgLeft.toString().c_str(), avgRight.toString().c_str());
+            ESP_LOGI(Tag, "Envoi Joystick : (pitch=%+2.3f, roll=%+2.3f, yaw=%+2.3f, throttle=%+2.3f)",
+                     dto.flightController->pitch,
+                     dto.flightController->roll,
+                     dto.flightController->yaw,
+                     dto.flightController->throttle);
 
             espNowHandler->send_data(dto);
             lastLeft = avgLeft;

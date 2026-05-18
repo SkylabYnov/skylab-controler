@@ -11,7 +11,7 @@
 JoysticksManager *joysticksManager;
 ButtonsManager *buttonsManager;
 
-bool modeComputer = true;
+bool modeComputer = false;
 
 extern "C" void app_main()
 {

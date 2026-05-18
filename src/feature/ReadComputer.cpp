@@ -111,22 +111,18 @@ void ReadComputer::task_loop() {
         if (p->motorState != lastMotorState)
         {
             lastMotorState = p->motorState;
-            if(p->motorState){
-                ControllerRequestDTO controllerRequestDTO;
-                controllerRequestDTO.buttonMotorState = new bool(p->motorState);
-                controllerRequestDTO.initCounter();
-                espNowHandler->send_data(controllerRequestDTO);
-            }
+            ControllerRequestDTO controllerRequestDTO;
+            controllerRequestDTO.buttonMotorState = new bool(p->motorState);
+            controllerRequestDTO.initCounter();
+            espNowHandler->send_data(controllerRequestDTO);
         }
         if (p->motorArming != lastMotorArming)
         {
             lastMotorArming = p->motorArming;
-            if(p->motorArming){
-                ControllerRequestDTO controllerRequestDTO;
-                controllerRequestDTO.buttonMotorArming = new bool(p->motorArming);
-                controllerRequestDTO.initCounter();
-                espNowHandler->send_data(controllerRequestDTO);
-            }
+            ControllerRequestDTO controllerRequestDTO;
+            controllerRequestDTO.buttonMotorArming = new bool(p->motorArming);
+            controllerRequestDTO.initCounter();
+            espNowHandler->send_data(controllerRequestDTO);
         }
     }
 }

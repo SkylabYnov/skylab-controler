@@ -21,6 +21,23 @@ void ButtonsManager::initButton()
     gpio_install_isr_service(0);
     gpio_isr_handler_add(pinButtonArming, button_isr_handler_arming, this);
     gpio_isr_handler_add(pinButtonMotorState, button_isr_handler_motor, this);
+
+    // Create debounce timers
+    esp_timer_create_args_t timer_args_arming = {
+        .callback = &ButtonsManager::debounce_timer_callback_arming,
+        .arg = this,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "debounce_arming"
+    };
+    esp_timer_create(&timer_args_arming, &debounce_timer_arming);
+
+    esp_timer_create_args_t timer_args_motor = {
+        .callback = &ButtonsManager::debounce_timer_callback_motor,
+        .arg = this,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "debounce_motor"
+    };
+    esp_timer_create(&timer_args_motor, &debounce_timer_motor);
 }
 
 void ButtonsManager::Task()
@@ -35,6 +52,7 @@ void ButtonsManager::Task()
             controllerRequestDTO.initCounter();
             buttonPressedMotorState = false;
             espNowHandler->send_data(controllerRequestDTO);
+            ESP_LOGI(TAG, "Button Motor State Pressed. New State: %s", buttonPressedMotorStateValue ? "ON" : "OFF");
         }
         if (buttonPressedMotorArming)
         {
@@ -43,6 +61,7 @@ void ButtonsManager::Task()
             controllerRequestDTO.buttonMotorArming = new bool(buttonPressedMotorArmingValue);
             controllerRequestDTO.initCounter();
             buttonPressedMotorArming = false;
+            ESP_LOGI(TAG, "Button Motor Arming Pressed. New State: %s", buttonPressedMotorArmingValue ? "ARMED" : "DISARMED");
             espNowHandler->send_data(controllerRequestDTO);
         }
         vTaskDelay(pdMS_TO_TICKS(50));
@@ -52,10 +71,26 @@ void ButtonsManager::Task()
 void IRAM_ATTR ButtonsManager::button_isr_handler_arming(void *arg)
 {
     ButtonsManager *self = static_cast<ButtonsManager *>(arg);
+    gpio_intr_disable(self->pinButtonArming);
+    esp_timer_start_once(self->debounce_timer_arming, 100000);
     self->buttonPressedMotorArming = true;
 }
 void IRAM_ATTR ButtonsManager::button_isr_handler_motor(void *arg)
 {
     ButtonsManager *self = static_cast<ButtonsManager *>(arg);
+    gpio_intr_disable(self->pinButtonMotorState);
+    esp_timer_start_once(self->debounce_timer_motor, 100000);
     self->buttonPressedMotorState = true;
+}
+
+void ButtonsManager::debounce_timer_callback_arming(void *arg)
+{
+    ButtonsManager *self = static_cast<ButtonsManager *>(arg);
+    gpio_intr_enable(self->pinButtonArming);
+}
+
+void ButtonsManager::debounce_timer_callback_motor(void *arg)
+{
+    ButtonsManager *self = static_cast<ButtonsManager *>(arg);
+    gpio_intr_enable(self->pinButtonMotorState);
 }
