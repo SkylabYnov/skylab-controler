@@ -2,6 +2,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 JoysticksManager::JoysticksManager(EspNowHandler *espNowHandler)
     : espNowHandler(espNowHandler)
@@ -31,8 +32,14 @@ void JoysticksManager::Task()
         JoystickModel avgLeft = getAverage(sumLeftX, sumLeftY);
         JoystickModel avgRight = getAverage(sumRightX, sumRightY);
 
-        // Send if changed
-        if (lastLeft != avgLeft || lastRight != avgRight)
+        // JoystickModel::operator!= has a 50-LSB tolerance, so slow stick
+        // movements would never trigger a send. Force a periodic resend so
+        // gradual commands always reach the drone.
+        int64_t nowMs = esp_timer_get_time() / 1000;
+        bool changed = (lastSentLeft != avgLeft || lastSentRight != avgRight);
+        bool heartbeatDue = (nowMs - lastSentTimeMs) >= JOYSTICK_HEARTBEAT_MS;
+
+        if (changed || heartbeatDue)
         {
             ControllerRequestDTO dto;
             dto.ConvertJoyStickToFlightController(avgLeft, avgRight);
@@ -49,8 +56,9 @@ void JoysticksManager::Task()
                      dto.flightController->throttle);
 
             espNowHandler->send_data(dto);
-            lastLeft = avgLeft;
-            lastRight = avgRight;
+            lastSentLeft = avgLeft;
+            lastSentRight = avgRight;
+            lastSentTimeMs = nowMs;
         }
 
         vTaskDelay(pdMS_TO_TICKS(TIME_MS_BETWEEN));

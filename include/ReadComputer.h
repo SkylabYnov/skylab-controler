@@ -31,17 +31,6 @@ private:
     JoystickModel lastLeft;
     JoystickModel lastRight;
 
-
-    JoystickModel bufferLeft[NBR_INCR_JOYSTICK]{};
-    JoystickModel bufferRight[NBR_INCR_JOYSTICK]{};
-
-    int idx = 0;
-    int sumLeftX = 0, sumLeftY = 0;
-    int sumRightX = 0, sumRightY = 0;
-
-    void pushSample(JoystickModel *buf, int &sumX, int &sumY, const JoystickModel &sample);
-    JoystickModel getAverage(int sumX, int sumY) const;
-
     bool lastMotorArming = false;
     bool lastMotorState = false;
     

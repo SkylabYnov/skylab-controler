@@ -71,6 +71,13 @@ void ReadComputer::task_loop() {
         uart_read_bytes(UART_NUM_0, &length, 1, portMAX_DELAY);
 
         uint8_t payload[64];
+        // Guard against a malformed (or hostile) length byte. Without this,
+        // an attacker (or a stuck PC) can overflow the stack buffer.
+        if (length > sizeof(payload)) {
+            ESP_LOGW("RX", "Payload too large: %u (max %u) — dropping frame",
+                     (unsigned)length, (unsigned)sizeof(payload));
+            continue;
+        }
         uart_read_bytes(UART_NUM_0, payload, length, portMAX_DELAY);
 
         uint8_t checksum;
@@ -134,25 +141,4 @@ uint8_t ReadComputer::compute_checksum(const uint8_t *data, size_t len)
         sum += data[i];
     }
     return sum & 0xFF; // garder seulement 1 octet
-}
-void ReadComputer::pushSample(JoystickModel *buf, int &sumX, int &sumY, const JoystickModel &sample)
-{
-    // Remove oldest
-    sumX -= buf[idx].x;
-    sumY -= buf[idx].y;
-
-    // Insert new
-    buf[idx] = sample;
-    sumX += sample.x;
-    sumY += sample.y;
-
-    // Advance index
-    idx = (idx + 1) % NBR_INCR_JOYSTICK;
-}
-
-JoystickModel ReadComputer::getAverage(int sumX, int sumY) const
-{
-    int avgX = sumX / NBR_INCR_JOYSTICK;
-    int avgY = sumY / NBR_INCR_JOYSTICK;
-    return {avgX, avgY};
 }

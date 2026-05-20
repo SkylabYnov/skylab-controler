@@ -12,6 +12,11 @@
 #define NBR_INCR_JOYSTICK 10
 #define TIME_MS_BETWEEN 10
 
+// Force a re-send at least this often even when sticks haven't changed.
+// Without this, slow stick movements stay below JoystickModel's equality
+// tolerance and the drone never receives the new command.
+#define JOYSTICK_HEARTBEAT_MS 100
+
 #define LimiteJoystick -1 //40% de la puissance si 0.4f et si -1 alors désactivé
 
 class JoysticksManager
@@ -30,8 +35,9 @@ private:
     };
     EspNowHandler *espNowHandler;
     static constexpr const char *Tag = "JoysticksManager";
-    JoystickModel lastLeft;
-    JoystickModel lastRight;
+    JoystickModel lastSentLeft;
+    JoystickModel lastSentRight;
+    int64_t lastSentTimeMs = 0;
 
     // Circular buffers and running sums
     JoystickModel bufferLeft[NBR_INCR_JOYSTICK]{};
