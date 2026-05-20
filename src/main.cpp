@@ -1,67 +1,197 @@
-#include "JoysticksManager.h"
-#include "ButtonsManager.h"
+// Aerisys controller firmware entry point.
+//
+// Wires together:
+//   - EspNowLink         : ESP-NOW transport and peer persistence
+//   - PairingManager     : bonding state machine on top of the link
+//   - StatusLed          : visible link / pairing status on a single LED
+//   - JoysticksManager   : two analog joysticks -> ControllerRequestDTO
+//   - ButtonsManager     : declarative button table (press / long-press)
+//   - PcSerialBridge     : optional HIL/test entry over UART (compile-time)
+
+#include <vector>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-#include "nvs_flash.h"
-#include "esp_netif.h"
 #include "esp_event.h"
-#include "ReadComputer.h"
+#include "esp_netif.h"
+#include "nvs_flash.h"
 
-JoysticksManager *joysticksManager;
-ButtonsManager *buttonsManager;
+#include "config/Pins.h"
+#include "config/Timings.h"
 
-bool modeComputer = false;
+#include "core/EspNowLink.h"
+#include "core/PairingManager.h"
+
+#include "ui/StatusLed.h"
+
+#include "input/Button.h"
+#include "input/ButtonsManager.h"
+#include "input/JoysticksManager.h"
+
+#include "bridge/PcSerialBridge.h"
+
+#include <ControllerRequestDTO.h>
+
+namespace
+{
+    constexpr char TAG[] = "MAIN";
+
+    // Set to true to disable the embedded UI (sticks + buttons) and drive
+    // the controller from a host PC over UART instead. The two paths are
+    // mutually exclusive because they both want UART0.
+    constexpr bool MODE_COMPUTER = false;
+}
+
+using namespace Aerisys::Controller;
+
+// ---------------------------------------------------------------------
+// Shared toggle state for the arming / motor-state buttons.
+// Stored as file-scope statics so the button lambdas can reference them
+// safely after app_main() returns.
+// ---------------------------------------------------------------------
+namespace
+{
+    bool armingState     = false;
+    bool motorStateValue = false;
+
+    // Tiny task that mirrors the pairing state onto the status LED.
+    // Kept here (vs. inside StatusLed) so the LED module stays free of
+    // any business-logic dependency.
+    [[noreturn]] void statusSupervisorTask(void *arg)
+    {
+        struct Ctx {
+            PairingManager *pairing;
+            StatusLed      *led;
+        };
+        Ctx *ctx = static_cast<Ctx*>(arg);
+
+        StatusLed::Pattern lastPattern = StatusLed::Pattern::Off;
+        while (true) {
+            StatusLed::Pattern wanted = ctx->pairing->isPairing()
+                                         ? StatusLed::Pattern::FastBlink
+                                         : StatusLed::Pattern::Off;
+            if (wanted != lastPattern) {
+                ctx->led->setPattern(wanted);
+                lastPattern = wanted;
+            }
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
+}
 
 extern "C" void app_main()
 {
+    // Standard ESP-IDF system bring-up.
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    EspNowHandler *espNow = new EspNowHandler();
-    if (!espNow->init())
-    {
-        ESP_LOGE("MAIN", "ESP-NOW init failed!");
+    // ------------------------------------------------------------------
+    // Radio transport + pairing
+    // ------------------------------------------------------------------
+    auto *link = new EspNowLink();
+    if (!link->init()) {
+        ESP_LOGE(TAG, "ESP-NOW link init failed");
         return;
     }
 
-    xTaskCreate(
-        espNow->Task,           // Fonction d'entrée statique
-        "espNowTask",         // Nom de la tâche
-        4096,                   // Taille de la pile (en octets, souvent 4096 pour une tâche C++)
-        espNow,                 // Argument : Pointeur 'this' vers l'instance
-        1, // Priorité (élevée)
-        NULL                    // Handle de tâche (non utilisé ici)
-    );
+    auto *pairing = new PairingManager(link);
+    pairing->init();
 
-    if(modeComputer){
+    // ------------------------------------------------------------------
+    // Status LED + supervisor that drives it from pairing state
+    // ------------------------------------------------------------------
+    auto *led = new StatusLed(Pins::LED_STATUS);
+    led->init();
+    led->start();
 
-        ReadComputer *reader = new ReadComputer(espNow, 115200);
+    struct SupervisorCtx { PairingManager *pairing; StatusLed *led; };
+    auto *ctx = new SupervisorCtx{pairing, led};
+    xTaskCreate(statusSupervisorTask, "statusSupervisor",
+                2048, ctx, 1, nullptr);
 
-        xTaskCreate(
-        reader->Task,           // Fonction d'entrée statique
-        "read_pc_task",         // Nom de la tâche
-        4096,                   // Taille de la pile (en octets, souvent 4096 pour une tâche C++)
-        reader,                 // Argument : Pointeur 'this' vers l'instance
-        5, // Priorité (élevée)
-        NULL                    // Handle de tâche (non utilisé ici)
-    );
+    // ------------------------------------------------------------------
+    // Periodic ping (keeps the drone-side link timer happy)
+    // ------------------------------------------------------------------
+    xTaskCreate([](void *arg) {
+        auto *l = static_cast<EspNowLink*>(arg);
+        while (true) {
+            l->sendPing();
+            vTaskDelay(pdMS_TO_TICKS(Timings::PING_INTERVAL_US / 1000));
+        }
+    }, "pingTask", 2048, link, 1, nullptr);
 
+    if (MODE_COMPUTER) {
+        // ------------------------------------------------------------------
+        // PC bridge path (HIL / scripted tests)
+        // ------------------------------------------------------------------
+        auto *bridge = new PcSerialBridge(link, 115200);
+        xTaskCreate([](void *arg) {
+            static_cast<PcSerialBridge*>(arg)->task();
+        }, "pcBridgeTask", 4096, bridge, 5, nullptr);
+    } else {
+        // ------------------------------------------------------------------
+        // Embedded UI path: joysticks + physical buttons
+        // ------------------------------------------------------------------
+        auto *joysticks = new JoysticksManager(link);
+        joysticks->init();
+
+        std::vector<Button> buttonTable = {
+            {
+                .pin         = Pins::BTN_ARMING,
+                .name        = "arming",
+                .pullUp      = true,
+                .onPressed   = [link]() {
+                    armingState = !armingState;
+                    ControllerRequestDTO dto;
+                    dto.buttonMotorArming = new bool(armingState);
+                    dto.initCounter();
+                    link->sendControllerRequest(dto);
+                    ESP_LOGI(TAG, "Arming -> %s", armingState ? "ARMED" : "DISARMED");
+                },
+            },
+            {
+                .pin         = Pins::BTN_MOTOR_STATE,
+                .name        = "motor_state",
+                .pullUp      = true,
+                .onPressed   = [link]() {
+                    motorStateValue = !motorStateValue;
+                    ControllerRequestDTO dto;
+                    dto.buttonMotorState = new bool(motorStateValue);
+                    dto.initCounter();
+                    link->sendControllerRequest(dto);
+                    ESP_LOGI(TAG, "Motor state -> %s", motorStateValue ? "ON" : "OFF");
+                },
+            },
+            {
+                .pin         = Pins::BTN_ASSOCIATION,
+                .name        = "association",
+                .pullUp      = true,
+                .longPressMs = static_cast<int>(Timings::ASSOCIATION_LONG_PRESS_MS),
+                .onLongPress = [pairing]() {
+                    ESP_LOGW(TAG, "Long press on association: forgetting peer");
+                    pairing->forgetPeer();
+                },
+            },
+            // To add a new button: append one more entry here.
+            // {
+            //     .pin       = Pins::BTN_AUTOTUNE,
+            //     .name      = "autotune",
+            //     .onPressed = [link]() { /* ... */ },
+            // },
+        };
+        auto *buttons = new ButtonsManager(std::move(buttonTable));
+        buttons->init();
+
+        xTaskCreate([](void *arg) {
+            static_cast<JoysticksManager*>(arg)->task();
+        }, "joysticksTask", 4096, joysticks, 5, nullptr);
+
+        xTaskCreate([](void *arg) {
+            static_cast<ButtonsManager*>(arg)->task();
+        }, "buttonsTask", 4096, buttons, 5, nullptr);
     }
-    else{
-        joysticksManager = new JoysticksManager(espNow);
-        joysticksManager->initJoystick();
-        buttonsManager = new ButtonsManager(espNow);
-        buttonsManager->initButton();
 
-        xTaskCreate([](void *)
-                    { joysticksManager->Task(); },
-                    "joystickManagerTask", 4096, &joysticksManager, 5, nullptr);
-
-        xTaskCreate([](void *)
-                    { buttonsManager->Task(); },
-                    "buttonManagerTask", 4096, &buttonsManager, 5, nullptr);
-    }
-    
+    ESP_LOGI(TAG, "Controller boot complete");
 }
