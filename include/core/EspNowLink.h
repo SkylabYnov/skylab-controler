@@ -7,7 +7,7 @@
 #include <ControllerRequestDTO.h>
 #include <PingRequestDTO.h>
 #include <PairingPacket.h>
-#include <mpuDTO.h>
+#include <TelemetryDTO.h>
 
 namespace Aerisys::Controller
 {
@@ -24,9 +24,15 @@ class EspNowLink
 public:
     // Receive callbacks. Set what you care about; the rest are ignored.
     // All callbacks fire from the ESP-NOW RX context (short, no blocking).
+    //
+    // `onTelemetry` (esp-lib v1.2.0+) replaces the previous `onMpu(mpuDTO)`
+    // callback: the drone now emits a unified TelemetryDTO (snapshot IMU
+    // atomique + motorSpeeds + timestamp). No consumer is wired yet on
+    // the controller side, but the dispatch is in place so a future UI /
+    // logger / OSD module can subscribe with a single line.
     std::function<void(const ControllerRequestData&)> onControllerData;
     std::function<void(const PingRequestDTO&)>        onPing;
-    std::function<void(const mpuDTO&)>                onMpu;
+    std::function<void(const TelemetryDTO&)>          onTelemetry;
     std::function<void(const PairingPacket&,
                        const uint8_t srcMac[6])>      onPairingPacket;
 

@@ -40,12 +40,10 @@ EspNowLink::~EspNowLink()
 
 bool EspNowLink::init()
 {
-    // NVS may already be initialised by app_main; tolerate either.
-    esp_err_t nvsRet = nvs_flash_init();
-    if (nvsRet == ESP_ERR_NVS_NO_FREE_PAGES || nvsRet == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ESP_ERROR_CHECK(nvs_flash_init());
-    }
+    // NVS is initialised once in app_main() (with the standard recovery
+    // pattern) for the whole controller firmware. Do NOT re-init here:
+    // a duplicate init is technically idempotent but it masks a missing
+    // call in main (and keeps the responsibility chain unclear).
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -229,11 +227,15 @@ void EspNowLink::dispatchRecv(const esp_now_recv_info_t *info,
             std::memcpy(&pkt, data, sizeof(pkt));
             onPing(pkt);
         }
-    } else if (len == sizeof(mpuDTO)) {
-        if (onMpu) {
-            mpuDTO pkt;
+    } else if (len == sizeof(TelemetryDTO)) {
+        // esp-lib v1.2.0: telemetry packet from the drone (snapshot IMU +
+        // motorSpeeds + timestamp, ~92 B). Dispatched even if no consumer
+        // is currently subscribed — onTelemetry stays a no-op until a
+        // future UI / OSD / logger module wires itself in.
+        if (onTelemetry) {
+            TelemetryDTO pkt;
             std::memcpy(&pkt, data, sizeof(pkt));
-            onMpu(pkt);
+            onTelemetry(pkt);
         }
     } else if (len == sizeof(ControllerRequestData)) {
         if (onControllerData) {
