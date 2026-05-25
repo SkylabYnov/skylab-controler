@@ -144,8 +144,10 @@ extern "C" void app_main()
                 .pullUp      = true,
                 .onPressed   = [link]() {
                     armingState = !armingState;
+                    // esp-lib v1.1.0+ POD API: value + has_X flag, no heap.
                     ControllerRequestDTO dto;
-                    dto.buttonMotorArming = new bool(armingState);
+                    dto.buttonMotorArming     = armingState;
+                    dto.has_buttonMotorArming = true;
                     dto.initCounter();
                     link->sendControllerRequest(dto);
                     ESP_LOGI(TAG, "Arming -> %s", armingState ? "ARMED" : "DISARMED");
@@ -157,8 +159,10 @@ extern "C" void app_main()
                 .pullUp      = true,
                 .onPressed   = [link]() {
                     motorStateValue = !motorStateValue;
+                    // esp-lib v1.1.0+ POD API: value + has_X flag, no heap.
                     ControllerRequestDTO dto;
-                    dto.buttonMotorState = new bool(motorStateValue);
+                    dto.buttonMotorState     = motorStateValue;
+                    dto.has_buttonMotorState = true;
                     dto.initCounter();
                     link->sendControllerRequest(dto);
                     ESP_LOGI(TAG, "Motor state -> %s", motorStateValue ? "ON" : "OFF");
