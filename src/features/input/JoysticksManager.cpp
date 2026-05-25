@@ -58,20 +58,23 @@ void JoysticksManager::task()
         // Send only when the averaged value actually changed
         if (lastLeft != avgLeft || lastRight != avgRight) {
             ControllerRequestDTO dto;
+            // esp-lib v1.1.0+: assignation par valeur, plus de `new` interne.
+            // ConvertJoyStickToFlightController() positionne lui-même
+            // `has_flightController = true`.
             dto.ConvertJoyStickToFlightController(avgLeft, avgRight);
             dto.initCounter();
 
-            if (Limits::JOYSTICK_THROTTLE_LIMIT >= 0.0f && dto.flightController) {
-                dto.flightController->throttle *= Limits::JOYSTICK_THROTTLE_LIMIT;
+            if (Limits::JOYSTICK_THROTTLE_LIMIT >= 0.0f && dto.has_flightController) {
+                dto.flightController.throttle *= Limits::JOYSTICK_THROTTLE_LIMIT;
             }
 
-            if (dto.flightController) {
+            if (dto.has_flightController) {
                 ESP_LOGD(TAG,
                          "Send joystick: pitch=%+2.3f roll=%+2.3f yaw=%+2.3f throttle=%+2.3f",
-                         dto.flightController->pitch,
-                         dto.flightController->roll,
-                         dto.flightController->yaw,
-                         dto.flightController->throttle);
+                         dto.flightController.pitch,
+                         dto.flightController.roll,
+                         dto.flightController.yaw,
+                         dto.flightController.throttle);
             }
 
             link->sendControllerRequest(dto);
