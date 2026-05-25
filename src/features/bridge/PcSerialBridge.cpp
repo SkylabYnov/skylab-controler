@@ -104,11 +104,13 @@ void PcSerialBridge::dispatchPacket(const ControllerPacket &pkt)
 
     if (lastLeft != left || lastRight != right) {
         ControllerRequestDTO dto;
+        // esp-lib v1.1.0+ : ConvertJoyStickToFlightController positionne
+        // has_flightController = true en interne (assignation par valeur).
         dto.ConvertJoyStickToFlightController(left, right);
         dto.initCounter();
 
-        if (Limits::JOYSTICK_THROTTLE_LIMIT >= 0.0f && dto.flightController) {
-            dto.flightController->throttle *= Limits::JOYSTICK_THROTTLE_LIMIT;
+        if (Limits::JOYSTICK_THROTTLE_LIMIT >= 0.0f && dto.has_flightController) {
+            dto.flightController.throttle *= Limits::JOYSTICK_THROTTLE_LIMIT;
         }
 
         link->sendControllerRequest(dto);
@@ -118,16 +120,20 @@ void PcSerialBridge::dispatchPacket(const ControllerPacket &pkt)
 
     if (pkt.motorState != lastMotorState) {
         lastMotorState = pkt.motorState;
+        // esp-lib v1.1.0+ POD API: value + has_X flag, no heap.
         ControllerRequestDTO dto;
-        dto.buttonMotorState = new bool(pkt.motorState);
+        dto.buttonMotorState     = pkt.motorState;
+        dto.has_buttonMotorState = true;
         dto.initCounter();
         link->sendControllerRequest(dto);
     }
 
     if (pkt.motorArming != lastMotorArming) {
         lastMotorArming = pkt.motorArming;
+        // esp-lib v1.1.0+ POD API: value + has_X flag, no heap.
         ControllerRequestDTO dto;
-        dto.buttonMotorArming = new bool(pkt.motorArming);
+        dto.buttonMotorArming     = pkt.motorArming;
+        dto.has_buttonMotorArming = true;
         dto.initCounter();
         link->sendControllerRequest(dto);
     }
