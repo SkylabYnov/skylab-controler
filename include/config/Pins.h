@@ -20,7 +20,7 @@ namespace Aerisys::Controller::Pins
     // Buttons (active-low with internal pull-up)
     // ---------------------------------------------------------------------
     static constexpr gpio_num_t BTN_ARMING      = GPIO_NUM_14;
-    static constexpr gpio_num_t BTN_MOTOR_STATE = GPIO_NUM_12;
+    static constexpr gpio_num_t BTN_MOTOR_STATE = GPIO_NUM_13;
     static constexpr gpio_num_t BTN_ASSOCIATION = GPIO_NUM_16;
 
     // ---------------------------------------------------------------------

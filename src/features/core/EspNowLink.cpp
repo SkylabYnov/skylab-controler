@@ -50,6 +50,15 @@ bool EspNowLink::init()
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    // Lower Wi-Fi TX power from the default +20 dBm (100 mW) to +10 dBm
+    // (10 mW). Reduces per-packet current draw by ~10x, which:
+    //   - lessens the risk of brownout on marginal USB supplies for the
+    //     1 Hz ping bursts and the ESP-NOW transmissions;
+    //   - more than enough range for a controller-drone link (~20-30 m
+    //     line of sight at +10 dBm in 802.11 b/g modes).
+    // Unit of esp_wifi_set_max_tx_power is 0.25 dBm steps: 40 = 10 dBm.
+    ESP_ERROR_CHECK(esp_wifi_set_max_tx_power(40));
+
     ESP_ERROR_CHECK(esp_wifi_set_protocol(
         WIFI_IF_STA,
         WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N));

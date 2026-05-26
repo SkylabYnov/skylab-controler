@@ -88,6 +88,26 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     // ------------------------------------------------------------------
+    // Power-rail settling delay before Wi-Fi PA spike.
+    //
+    // esp_wifi_start() (called inside EspNowLink::init below) triggers
+    // the Wi-Fi PHY calibration which pulls a ~200-500 mA current spike
+    // for a few hundred microseconds. On marginal USB supplies / cheap
+    // cables, this collapses VDD below the brownout threshold (2.43 V
+    // default) and the chip resets in a loop.
+    //
+    // This delay lets the 5 V rail's bulk caps and the 3.3 V LDO fully
+    // stabilise BEFORE the radio fires up — empirically resolves most
+    // boot-loops without hardware changes. The peak itself is unchanged
+    // (intrinsic to PHY calibration), but the supply is at its best
+    // state when it has to deliver it.
+    //
+    // True fix is hardware: use a powered USB hub / wall adapter, add a
+    // 470 µF cap between VIN and GND, or migrate to a DevKit with a
+    // beefier LDO + larger input caps. See controller README for details.
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    // ------------------------------------------------------------------
     // Radio transport + pairing
     // ------------------------------------------------------------------
     auto *link = new EspNowLink();

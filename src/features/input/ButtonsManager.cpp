@@ -57,6 +57,8 @@ void ButtonsManager::task()
             if (pressed && !rt.prevPressed) {
                 rt.pressStartUs   = nowUs;
                 rt.longPressFired = false;
+                ESP_LOGI(TAG, "Long press on '%s' (%d ms)",
+                         btn.name ? btn.name : "?", btn.longPressMs);
                 if (btn.onPressed) btn.onPressed();
             }
 
@@ -75,6 +77,7 @@ void ButtonsManager::task()
                 // Only fire onReleased if no long-press consumed the event.
                 if (!rt.longPressFired && btn.onReleased) {
                     btn.onReleased();
+
                 }
                 rt.pressStartUs   = 0;
                 rt.longPressFired = false;
