@@ -18,10 +18,16 @@ namespace Aerisys::Controller::Timings
     // ---------------------------------------------------------------------
     // Buttons
     // ---------------------------------------------------------------------
-    // Time the GPIO interrupt is disabled after a press, to swallow bounces.
+    // Minimum stable time a raw GPIO sample must hold before its new
+    // value is accepted by ButtonsManager. Filters mechanical bounces
+    // and Wi-Fi PA-induced glitches.
     static constexpr uint64_t BUTTON_DEBOUNCE_US    = 100'000;
     // Period of the buttons task that drains the pending events queue.
     static constexpr int      BUTTON_POLL_PERIOD_MS = 50;
+    // After the buttons task starts, ignore any edge for this long.
+    // Avoids spurious events from settling pull-ups / power-on transients
+    // and from buttons held while powering the board.
+    static constexpr int64_t  BUTTON_WARMUP_US      = 250'000;
 
     // ---------------------------------------------------------------------
     // Safety long-press thresholds

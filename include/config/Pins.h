@@ -35,6 +35,10 @@ namespace Aerisys::Controller::Pins
     // ---------------------------------------------------------------------
     static constexpr gpio_num_t BTN_ARMING      = GPIO_NUM_14;
     static constexpr gpio_num_t BTN_MOTOR_STATE = GPIO_NUM_13;
+    // NOTE: GPIO 16 is reserved for PSRAM on ESP32-WROVER modules. This
+    // assignment is safe on WROOM (no PSRAM). If migrating to a WROVER
+    // board, move BTN_ASSOCIATION to e.g. GPIO 17 or GPIO 4 — otherwise
+    // the button will not work and PSRAM may misbehave.
     static constexpr gpio_num_t BTN_ASSOCIATION = GPIO_NUM_16;
 
     // ---------------------------------------------------------------------

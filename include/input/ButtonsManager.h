@@ -10,10 +10,19 @@ namespace Aerisys::Controller
 // ButtonsManager polls a user-supplied list of buttons at a fixed cadence
 // and dispatches press / release / long-press callbacks.
 //
-// Polling-only (no ISRs) keeps the firmware simple, dodges debounce
-// edge cases entirely (a press only counts when the GPIO is stable for
-// a full poll period), and supports an arbitrary number of buttons
-// without per-instance ISR plumbing.
+// Polling-only (no ISRs) keeps the firmware simple and supports an
+// arbitrary number of buttons without per-instance ISR plumbing.
+//
+// Glitch tolerance:
+//   - Mechanical bounces and Wi-Fi PA-induced GPIO glitches are filtered
+//     by a temporal debounce inside task(): a new value is only accepted
+//     when the raw GPIO has held it for >= Timings::BUTTON_DEBOUNCE_US.
+//     This makes an external RC filter (e.g. 100 nF to GND on the input)
+//     optional — useful only for very noisy wiring (long unshielded
+//     leads near the ESC harness).
+//   - A warmup window (Timings::BUTTON_WARMUP_US) silently syncs to the
+//     resting state at boot so a button held at power-on doesn't fire a
+//     phantom press on the first stable sample.
 //
 // Adding a button is one entry in the constructor's vector.
 class ButtonsManager

@@ -31,7 +31,20 @@ void ButtonsManager::init()
         cfg.pull_up_en    = btn.pullUp ? GPIO_PULLUP_ENABLE  : GPIO_PULLUP_DISABLE;
         cfg.pull_down_en  = btn.pullUp ? GPIO_PULLDOWN_DISABLE : GPIO_PULLDOWN_ENABLE;
         cfg.intr_type     = GPIO_INTR_DISABLE;
-        gpio_config(&cfg);
+
+        // Surface invalid pins (e.g. flash-reserved GPIO 6-11, output-only,
+        // etc.) instead of letting them silently fail and the button
+        // appear dead at runtime.
+        esp_err_t err = gpio_config(&cfg);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG,
+                     "gpio_config failed for '%s' on GPIO %d: %s",
+                     btn.name ? btn.name : "?",
+                     static_cast<int>(btn.pin),
+                     esp_err_to_name(err));
+            continue;
+        }
+
         ESP_LOGI(TAG, "Registered button '%s' on GPIO %d (pull-%s)",
                  btn.name ? btn.name : "?",
                  static_cast<int>(btn.pin),
@@ -43,8 +56,18 @@ void ButtonsManager::task()
 {
     ESP_LOGI(TAG, "ButtonsManager task running (%zu buttons)", buttons.size());
 
+    // Capture the task start time so we can ignore edges during the
+    // BUTTON_WARMUP_US window. During warmup we still feed the debounce
+    // tracker (lastRaw / lastRawChangeUs) and prevPressed, so when the
+    // gate opens the manager already knows the current resting state
+    // and only fires on a real, post-warmup transition.
+    const int64_t taskStartUs = esp_timer_get_time();
+
     while (true) {
-        const int64_t nowUs = esp_timer_get_time();
+        const int64_t nowUs    = esp_timer_get_time();
+        const bool    inWarmup =
+            (nowUs - taskStartUs) <
+            static_cast<int64_t>(Timings::BUTTON_WARMUP_US);
 
         for (size_t i = 0; i < buttons.size(); ++i) {
             const Button &btn = buttons[i];
@@ -70,6 +93,15 @@ void ButtonsManager::task()
             // If the raw hasn't been stable long enough, keep the
             // previously-accepted state — no edge fired this cycle.
             const bool pressed = stable ? raw : rt.prevPressed;
+
+            // During warmup: silently sync prevPressed to the current
+            // stable level so that when the gate opens we don't see a
+            // phantom rising/falling edge against the default-init
+            // prevPressed = false. No callbacks fire in this branch.
+            if (inWarmup) {
+                rt.prevPressed = pressed;
+                continue;
+            }
 
             // A button has the "short-tap vs long-press" semantic only
             // when BOTH longPressMs and onLongPress are set. Otherwise

@@ -56,6 +56,20 @@ void PairingManager::init()
 
 void PairingManager::forgetPeer()
 {
+    // NOTE on threading:
+    // forgetPeer() runs on the buttons task (long-press on BTN_ASSOCIATION)
+    // while onPairingPacket — wired in init() — runs on the Wi-Fi RX
+    // task on core 0. There is a narrow race window (a few microseconds)
+    // where a pairing packet could arrive while link->forgetPeer() is
+    // iterating esp_now_fetch_peer / esp_now_del_peer.
+    //
+    // currentState is std::atomic, so the state check inside the RX
+    // callback is correct; the residual risk is concurrent esp-now peer
+    // table mutation. In practice, BTN_ASSOCIATION is held intentionally
+    // and the drone is not actively broadcasting at that moment, so the
+    // race has not been observed. If it ever surfaces (lost peer or
+    // spurious pairing after forget), wrap both operations under a
+    // shared mutex inside EspNowLink.
     link->forgetPeer();
     enterPairingMode();
 }
