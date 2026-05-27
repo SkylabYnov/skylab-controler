@@ -2,6 +2,7 @@
 
 #include "core/EspNowLink.h"
 #include "config/Limits.h"
+#include "config/Pins.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -12,6 +13,17 @@
 namespace
 {
     constexpr char TAG[] = "JoysticksManager";
+
+    // ADC1 is configured in 12-bit mode (ADC_WIDTH_BIT_12) in the
+    // constructor, so raw values land in 0..4095. Inversion mirrors a
+    // sample around the centre of that range so an axis whose pot is
+    // wired backwards reads correctly without rewiring.
+    constexpr int ADC_RAW_MAX = 4095;
+
+    inline int maybeInvert(int raw, bool invert)
+    {
+        return invert ? (ADC_RAW_MAX - raw) : raw;
+    }
 }
 
 namespace Aerisys::Controller
@@ -45,6 +57,14 @@ void JoysticksManager::task()
         for (int i = 0; i < 4; ++i) {
             raw[i] = adc1_get_raw(adcChannels[i]);
         }
+
+        // Apply per-axis software inversion (some KY-023 modules wire the
+        // pot backwards vs the esp-lib convention — see config/Pins.h).
+        // adcChannels[] order is LEFT_X, LEFT_Y, RIGHT_X, RIGHT_Y.
+        raw[0] = maybeInvert(raw[0], Pins::INVERT_LEFT_X);
+        raw[1] = maybeInvert(raw[1], Pins::INVERT_LEFT_Y);
+        raw[2] = maybeInvert(raw[2], Pins::INVERT_RIGHT_X);
+        raw[3] = maybeInvert(raw[3], Pins::INVERT_RIGHT_Y);
 
         const JoystickModel left (raw[0], raw[1]);
         const JoystickModel right(raw[2], raw[3]);
