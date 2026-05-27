@@ -30,9 +30,17 @@ public:
 
 private:
     struct Runtime {
+        // Debounced ("stable") state — only flipped when the raw sample
+        // has held its new value for at least Timings::BUTTON_DEBOUNCE_US.
         bool    prevPressed     = false;
         int64_t pressStartUs    = 0;
         bool    longPressFired  = false;
+
+        // Raw debounce tracking — last raw sample seen, and the time at
+        // which it last changed value. A transition into `prevPressed`
+        // only happens when (now - lastRawChangeUs) >= debounce window.
+        bool    lastRaw         = false;
+        int64_t lastRawChangeUs = 0;
     };
 
     std::vector<Button>  buttons;

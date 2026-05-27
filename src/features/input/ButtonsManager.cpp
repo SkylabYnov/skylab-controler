@@ -50,22 +50,50 @@ void ButtonsManager::task()
             const Button &btn = buttons[i];
             Runtime     &rt   = runtimes[i];
 
-            const int  level   = gpio_get_level(btn.pin);
-            const bool pressed = btn.pullUp ? (level == 0) : (level == 1);
+            // ---- Read raw level + apply temporal debounce ----
+            // A new "pressed" state is only accepted once the raw input
+            // has been stable for >= BUTTON_DEBOUNCE_US. This filters
+            // mechanical bounces and Wi-Fi PA-induced glitches without
+            // delaying clean transitions more than one debounce window.
+            const int  level = gpio_get_level(btn.pin);
+            const bool raw   = btn.pullUp ? (level == 0) : (level == 1);
+
+            if (raw != rt.lastRaw) {
+                rt.lastRaw         = raw;
+                rt.lastRawChangeUs = nowUs;
+            }
+
+            const bool stable =
+                (nowUs - rt.lastRawChangeUs) >=
+                static_cast<int64_t>(Timings::BUTTON_DEBOUNCE_US);
+
+            // If the raw hasn't been stable long enough, keep the
+            // previously-accepted state — no edge fired this cycle.
+            const bool pressed = stable ? raw : rt.prevPressed;
+
+            // A button has the "short-tap vs long-press" semantic only
+            // when BOTH longPressMs and onLongPress are set. Otherwise
+            // we keep the simple "onPressed on rising edge" behaviour.
+            const bool hasLongPress = (btn.longPressMs > 0) && btn.onLongPress;
 
             // ---- Rising edge: press starts ----
             if (pressed && !rt.prevPressed) {
                 rt.pressStartUs   = nowUs;
                 rt.longPressFired = false;
-                ESP_LOGI(TAG, "Long press on '%s' (%d ms)",
-                         btn.name ? btn.name : "?", btn.longPressMs);
-                if (btn.onPressed) btn.onPressed();
+                ESP_LOGI(TAG, "Pressed '%s'",
+                         btn.name ? btn.name : "?");
+
+                // Without a long-press configured, fire onPressed now
+                // (historical behaviour). With a long-press configured,
+                // onPressed is deferred to the release edge so it only
+                // fires on a true short tap.
+                if (!hasLongPress && btn.onPressed) btn.onPressed();
             }
 
             // ---- Long-press detection while held ----
-            if (pressed && !rt.longPressFired
-                && btn.longPressMs > 0 && btn.onLongPress
-                && (nowUs - rt.pressStartUs) >= (int64_t)btn.longPressMs * 1000LL) {
+            if (pressed && !rt.longPressFired && hasLongPress
+                && (nowUs - rt.pressStartUs) >=
+                       static_cast<int64_t>(btn.longPressMs) * 1000LL) {
                 rt.longPressFired = true;
                 ESP_LOGI(TAG, "Long press on '%s' (%d ms)",
                          btn.name ? btn.name : "?", btn.longPressMs);
@@ -74,10 +102,13 @@ void ButtonsManager::task()
 
             // ---- Falling edge: release ----
             if (!pressed && rt.prevPressed) {
-                // Only fire onReleased if no long-press consumed the event.
-                if (!rt.longPressFired && btn.onReleased) {
-                    btn.onReleased();
-
+                if (!rt.longPressFired) {
+                    // Released before the long-press threshold:
+                    //   - if the button has a long-press configured,
+                    //     this is a "short tap" → fire onPressed now;
+                    //   - then fire onReleased as usual.
+                    if (hasLongPress && btn.onPressed) btn.onPressed();
+                    if (btn.onReleased)                btn.onReleased();
                 }
                 rt.pressStartUs   = 0;
                 rt.longPressFired = false;

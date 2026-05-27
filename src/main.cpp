@@ -159,14 +159,20 @@ extern "C" void app_main()
 
         std::vector<Button> buttonTable = {
             {
+                // Arming uses a long-press toggle (Timings::ARMING_LONG_PRESS_MS)
+                // so an accidental brush against the button mid-flight cannot
+                // disarm the drone. Toggle is computed locally on the
+                // controller and the wire payload is the *absolute* state
+                // (drone receives the new value, not "flip whatever you have").
                 .pin         = Pins::BTN_ARMING,
                 .name        = "arming",
                 .pullUp      = true,
-                .onPressed   = [link]() {
+                .longPressMs = Timings::ARMING_LONG_PRESS_MS,
+                .onLongPress = [link]() {
                     armingState = !armingState;
                     // esp-lib v1.1.0+ POD API: value + has_X flag, no heap.
                     ControllerRequestDTO dto;
-                    dto.buttonMotorArming     = armingState;
+                    dto.buttonMotorArming     = armingState;   // absolute
                     dto.has_buttonMotorArming = true;
                     dto.initCounter();
                     link->sendControllerRequest(dto);
@@ -174,14 +180,17 @@ extern "C" void app_main()
                 },
             },
             {
+                // Same safety rationale as arming: long-press toggle to
+                // protect against accidental motor cuts in flight.
                 .pin         = Pins::BTN_MOTOR_STATE,
                 .name        = "motor_state",
                 .pullUp      = true,
-                .onPressed   = [link]() {
+                .longPressMs = Timings::MOTOR_STATE_LONG_PRESS_MS,
+                .onLongPress = [link]() {
                     motorStateValue = !motorStateValue;
                     // esp-lib v1.1.0+ POD API: value + has_X flag, no heap.
                     ControllerRequestDTO dto;
-                    dto.buttonMotorState     = motorStateValue;
+                    dto.buttonMotorState     = motorStateValue;   // absolute
                     dto.has_buttonMotorState = true;
                     dto.initCounter();
                     link->sendControllerRequest(dto);

@@ -24,6 +24,15 @@ namespace Aerisys::Controller::Timings
     static constexpr int      BUTTON_POLL_PERIOD_MS = 50;
 
     // ---------------------------------------------------------------------
+    // Safety long-press thresholds
+    // ---------------------------------------------------------------------
+    // Arming / motor-state toggle long-press. Short enough to stay
+    // ergonomic, long enough that a bump or accidental brush cannot
+    // disarm the drone mid-flight.
+    static constexpr int ARMING_LONG_PRESS_MS      = 1'500;
+    static constexpr int MOTOR_STATE_LONG_PRESS_MS = 1'500;
+
+    // ---------------------------------------------------------------------
     // Association / pairing
     // ---------------------------------------------------------------------
     // How long the association button must be held to trigger a re-pairing.
